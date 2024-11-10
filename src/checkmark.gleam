@@ -25,7 +25,6 @@ pub type CheckResult =
 
 pub opaque type CheckConfig {
   CheckConfig(
-    cwd: String,
     filename: String,
     filter: fn(String) -> Bool,
     operation: Operation,
@@ -35,8 +34,7 @@ pub opaque type CheckConfig {
 /// Constructs a new check configuration with the defaults of
 /// running `gleam check` on all snippets in the README.md file
 pub fn new() -> CheckConfig {
-  let assert Ok(cwd) = simplifile.current_directory()
-  CheckConfig(cwd, "README.md", fn(_) { True }, Check)
+  CheckConfig("README.md", fn(_) { True }, Check)
 }
 
 pub fn snippets_in(config: CheckConfig, filename: String) -> CheckConfig {
