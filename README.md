@@ -10,22 +10,16 @@ but plan on doing so soon, after getting some feedback.
 
 ```gleam
 import checkmark
-import filepath
 import gleam/string
-import simplifile
 
 pub fn main() {
-  let assert Ok(cwd) = simplifile.current_directory()
-  let file = filepath.join(cwd, "README.md")
-
   // Checks that a single gleam code block in README.md that starts with "import"
-  // passes type checks, adding "my_dependency" as a package.
-  let assert Ok([Ok(Nil)]) =
-    checkmark.check(
-      in: file,
-      using: ["my_dependency"],
-      selecting: string.starts_with(_, "import"),
-      operation: checkmark.Check,
-    )
+  // passes type checks, by creating the temporary file `checkmark_tmp.gleam`
+  // Checking in a temporary project is also supported.
+  let assert Ok([Ok(_)]) =
+    checkmark.new()
+    |> checkmark.snippets_in("README.md")
+    |> checkmark.filtering(string.starts_with(_, "import"))
+    |> checkmark.check_in_current_package("checkmark_tmp.gleam")
 }
 ```

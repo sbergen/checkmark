@@ -1,51 +1,83 @@
 import checkmark
 import filepath
+import gleam/io
 import gleam/string
 import gleeunit
 import gleeunit/should
-import simplifile
 
 pub fn main() {
   gleeunit.main()
 }
 
-pub fn check_test() {
-  let assert Ok(cwd) = simplifile.current_directory()
-  let file =
-    filepath.join(cwd, "test")
-    |> filepath.join("sample.md")
+const default_file = "checkmark_tmp.gleam"
 
-  let assert Ok([Ok(Nil)]) =
-    checkmark.check(
-      in: file,
-      using: ["filepath"],
-      selecting: string.starts_with(_, "import"),
-      operation: checkmark.Check,
-    )
+pub fn check_our_readme_test() {
+  let assert Ok([Ok(_)]) =
+    checkmark.new() |> checkmark.check_in_current_package("checkmark_tmp.gleam")
 }
 
-pub fn extract_test() {
-  let input =
-    "This is not code
-```gleam
-import gleam
+pub fn check_ok_local_test() {
+  let assert Ok([Ok(_)]) =
+    checkmark.new()
+    |> checkmark.snippets_in(test_asset("ok.md"))
+    |> checkmark.check_in_current_package(default_file)
+}
 
-This is code
-that should be checked
-```
-More text
+pub fn check_ok_isolated_test() {
+  let assert Ok([Ok(_)]) =
+    checkmark.new()
+    |> checkmark.snippets_in(test_asset("ok.md"))
+    |> checkmark.check_in_tmp_package(["filepath"])
+}
 
-```gleam
-This is code that should not be checked
-```
-"
+pub fn check_local_overwrite_not_allowed() {
+  let assert Ok([Error(_)]) =
+    checkmark.new()
+    |> checkmark.snippets_in(test_asset("ok.md"))
+    |> checkmark.check_in_current_package("test_overwrite.gleam")
+}
 
-  checkmark.extract_gleam_code(input, string.starts_with(_, "import"))
-  |> should.equal([
-    "import gleam
+pub fn check_ok_and_failure_test() {
+  let assert Ok([Ok(_), Error(checkmark.CheckFailed(_))]) =
+    checkmark.new()
+    |> checkmark.snippets_in(test_asset("ok_and_failure.md"))
+    |> checkmark.check_in_current_package(default_file)
+}
 
-This is code
-that should be checked
-",
-  ])
+pub fn check_runtime_failure_local_test() {
+  let assert Ok([Error(checkmark.CheckFailed(error))]) =
+    checkmark.new()
+    |> checkmark.using(checkmark.Run)
+    |> checkmark.snippets_in(test_asset("runtime_failure.md"))
+    |> checkmark.check_in_current_package(default_file)
+  let assert True = string.contains(error, "My Panic")
+}
+
+pub fn check_runtime_failure_isolated_test() {
+  let assert Ok([Error(checkmark.CheckFailed(error))]) =
+    checkmark.new()
+    |> checkmark.using(checkmark.Run)
+    |> checkmark.snippets_in(test_asset("runtime_failure.md"))
+    |> checkmark.check_in_tmp_package([])
+  let assert True = string.contains(error, "My Panic")
+}
+
+pub fn check_type_failure_test() {
+  let assert Ok([Error(checkmark.CheckFailed(error))]) =
+    checkmark.new()
+    |> checkmark.snippets_in(test_asset("type_failure.md"))
+    |> checkmark.check_in_current_package(default_file)
+  let assert True = string.contains(error, "Type mismatch")
+}
+
+pub fn check_filter_test() {
+  let assert Ok([Ok(_)]) =
+    checkmark.new()
+    |> checkmark.snippets_in(test_asset("with_and_without_import.md"))
+    |> checkmark.filtering(string.starts_with(_, "import"))
+    |> checkmark.check_in_current_package(default_file)
+}
+
+fn test_asset(filename: String) -> String {
+  filepath.join("test", filename)
 }
