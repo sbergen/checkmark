@@ -1,4 +1,6 @@
+import exception
 import filepath
+import gleam/io
 import gleam/list
 import gleam/result.{try}
 import gleam/string
@@ -63,45 +65,24 @@ pub fn check_code(
   let file_result = {
     use temp_dir <- temporary.create(temporary.directory())
     let package_dir = filepath.join(temp_dir, package_name)
-    let module_file =
-      filepath.join(package_dir, "src")
-      |> filepath.join(package_name <> ".gleam")
 
-    use _ <- try(
-      shellout.command(
-        "gleam",
-        with: ["new", package_name],
-        in: temp_dir,
-        opt: [],
-      )
-      |> or(CouldNotRun),
-    )
+    use _ <- try(run_gleam(
+      in: temp_dir,
+      with: ["new", package_name],
+      fail_as: CouldNotRun,
+    ))
 
     use _ <- try(case dependencies {
       [] -> Ok(Nil)
-      _ -> {
-        shellout.command(
-          "gleam",
-          with: ["add", ..dependencies],
+      _ ->
+        run_gleam(
           in: package_dir,
-          opt: [],
+          with: ["add", ..dependencies],
+          fail_as: CouldNotRun,
         )
-        |> or(CouldNotRun)
-      }
     })
 
-    use _ <- try(
-      simplifile.write(to: module_file, contents: code)
-      |> result.map_error(fn(e) { CouldNotRun(string.inspect(e)) }),
-    )
-
-    shellout.command(
-      "gleam",
-      with: to_args(operation),
-      in: package_dir,
-      opt: [],
-    )
-    |> or(CheckFailed)
+    check_in_dir(code, package_dir, operation)
   }
 
   case file_result {
@@ -110,11 +91,47 @@ pub fn check_code(
   }
 }
 
-fn or(
-  r: Result(String, #(Int, String)),
-  make_error: fn(String) -> CheckError,
+fn check_in_dir(
+  code: String,
+  package_dir: String,
+  operation: Operation,
 ) -> Result(Nil, CheckError) {
-  case r {
+  let source_dir = filepath.join(package_dir, "src")
+  let source_file = filepath.join(source_dir, package_name <> ".gleam")
+  use file <- with_tempfile(source_file, True)
+
+  use _ <- try(
+    simplifile.write(to: file, contents: code)
+    |> result.map_error(fn(e) { CouldNotRun(string.inspect(e)) }),
+  )
+
+  run_gleam(with: to_args(operation), in: package_dir, fail_as: CheckFailed)
+}
+
+fn with_tempfile(
+  path: String,
+  allow_overwrite: Bool,
+  operation: fn(String) -> Result(Nil, CheckError),
+) {
+  use _ <- try(create_file(path, allow_overwrite))
+  use <- exception.defer(fn() { simplifile.delete(path) })
+  operation(path)
+}
+
+fn create_file(path: String, allow_overwrite: Bool) -> Result(Nil, CheckError) {
+  case allow_overwrite, simplifile.create_file(path) {
+    True, Error(simplifile.Eexist) -> Ok(Nil)
+    _, Ok(_) -> Ok(Nil)
+    _, e -> Error(CouldNotRun(string.inspect(e)))
+  }
+}
+
+fn run_gleam(
+  in directory: String,
+  with args: List(String),
+  fail_as make_error: fn(String) -> CheckError,
+) -> Result(Nil, CheckError) {
+  case shellout.command("gleam", with: args, in: directory, opt: []) {
     Ok(_) -> Ok(Nil)
     Error(#(_, e)) -> Error(make_error(e))
   }
