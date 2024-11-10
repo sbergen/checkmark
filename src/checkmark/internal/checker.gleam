@@ -1,6 +1,5 @@
 import checkmark.{type CheckError, type Operation}
 import filepath
-import gleam/io
 import gleam/result.{try}
 import gleam/string
 import shellout
@@ -30,6 +29,19 @@ pub fn check_code(
       )
       |> or(checkmark.CouldNotRun),
     )
+
+    use _ <- try(case dependencies {
+      [] -> Ok(Nil)
+      _ -> {
+        shellout.command(
+          "gleam",
+          with: ["add", ..dependencies],
+          in: package_dir,
+          opt: [],
+        )
+        |> or(checkmark.CouldNotRun)
+      }
+    })
 
     use _ <- try(
       simplifile.write(to: module_file, contents: code)
