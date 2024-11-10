@@ -1,5 +1,4 @@
 import checkmark
-import checkmark/internal/checker
 import gleam/string
 
 pub fn check_code_no_error_test() {
@@ -10,7 +9,7 @@ pub fn main() {
   io.println(\"hello, friend!\")
 }"
 
-  let assert Ok(_) = checker.check_code(code, [], checkmark.Run)
+  let assert Ok(_) = checkmark.check_code(code, [], checkmark.Run)
 }
 
 pub fn check_code_type_error_test() {
@@ -22,7 +21,7 @@ pub fn main() {
 }"
 
   let assert Error(checkmark.CheckFailed(e)) =
-    checker.check_code(code, [], checkmark.Check)
+    checkmark.check_code(code, [], checkmark.Check)
   let assert True = string.contains(e, "Expected type")
 }
 
@@ -34,7 +33,7 @@ pub fn main() {
 }"
 
   let assert Error(checkmark.CheckFailed(e)) =
-    checker.check_code(code, [], checkmark.Run)
+    checkmark.check_code(code, [], checkmark.Run)
   let assert True = string.contains(e, "My panic")
 }
 
@@ -49,5 +48,5 @@ pub fn main() {
 }"
 
   let assert Ok(_) =
-    checker.check_code(code, ["simplifile", "temporary"], checkmark.Build)
+    checkmark.check_code(code, ["simplifile", "temporary"], checkmark.Build)
 }
