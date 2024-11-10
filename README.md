@@ -1,24 +1,31 @@
 # checkmark
 
-[![Package Version](https://img.shields.io/hexpm/v/checkmark)](https://hex.pm/packages/checkmark)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/checkmark/)
+Checkmark is a library for checking that gleam code in markdown files
+type checks, builds, or runs successfully.
 
-```sh
-gleam add checkmark@1
-```
+I have not published it as a hex package yet,
+but plan on doing so soon, after getting some feedback.
+
+## Example
+
 ```gleam
 import checkmark
+import filepath
+import gleam/string
+import simplifile
 
 pub fn main() {
-  // TODO: An example of the project in use
+  let assert Ok(cwd) = simplifile.current_directory()
+  let file = filepath.join(cwd, "README.md")
+
+  // Checks that all gleam code blocks in README.md that start with "import"
+  // pass type checks, adding "my_dependency" as a package.
+  let assert Ok([Ok(Nil)]) =
+    checkmark.check(
+      in: file,
+      using: ["my_dependency"],
+      selecting: string.starts_with(_, "import"),
+      operation: checkmark.Check,
+    )
 }
-```
-
-Further documentation can be found at <https://hexdocs.pm/checkmark>.
-
-## Development
-
-```sh
-gleam run   # Run the project
-gleam test  # Run the tests
 ```
