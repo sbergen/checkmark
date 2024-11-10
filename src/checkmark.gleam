@@ -9,20 +9,30 @@ import shellout
 import simplifile
 import temporary
 
+/// Specifies the `gleam` CLI operation to run on each snippet
 pub type Operation {
+  /// Will run `gleam check` on the code
   Check
+  /// Will run `gleam build` on the code
   Build
+  /// Will run `gleam run` on the code
   Run
 }
 
+/// Indicates a check on an individual snippet failed
 pub type CheckError {
+  /// Running the check failed before we could get the result from `gleam`.
+  /// The string value might currently be a bit cryptic, it should be improved.
   RunFailed(String)
+  /// We were able to run the `gleam` operation, but it failed with the given output.
   CheckFailed(String)
 }
 
+/// Type alias for a result of checking a single snippet.
 pub type CheckResult =
   Result(Nil, CheckError)
 
+/// Configuration for checking a markdown file.
 pub opaque type CheckConfig {
   CheckConfig(
     filename: String,
@@ -32,26 +42,30 @@ pub opaque type CheckConfig {
 }
 
 /// Constructs a new check configuration with the defaults of
-/// running `gleam check` on all snippets in the README.md file
+/// running `gleam check` on all snippets in the README.md file.
 pub fn new() -> CheckConfig {
   CheckConfig("README.md", fn(_) { True }, Check)
 }
 
+/// Specifies the markdown file to check (default is README.md)
 pub fn snippets_in(config: CheckConfig, filename: String) -> CheckConfig {
   CheckConfig(..config, filename: filename)
 }
 
+/// Filters snippets by their content. E.g. `string.starts_with(_, "import")`
 pub fn filtering(config: CheckConfig, filter: fn(String) -> Bool) -> CheckConfig {
   CheckConfig(..config, filter: filter)
 }
 
+/// Uses the given operation, default is `Check`
 pub fn using(config: CheckConfig, operation: Operation) -> CheckConfig {
   CheckConfig(..config, operation: operation)
 }
 
-/// Runs checks in the current package, writing into the given filename in src.
-/// The result will be Error if the whole operation failed (e.g. couldn't read snippets)
-/// or Ok with a list of results for each snippet found in the file.
+/// Runs checks in the current package,
+/// writing into temporary file at `src/{filename}`.
+/// The result will be `Error` if the whole operation failed (e.g. couldn't read snippets)
+/// or `Ok` with a list of results for each snippet found in the file.
 pub fn check_in_current_package(
   config: CheckConfig,
   as_file filename: String,
@@ -60,9 +74,10 @@ pub fn check_in_current_package(
   check_in_dir(snippet, ".", filename, False, config.operation)
 }
 
-/// Runs checks in a temporarily set up package, installing the given dependencies.
-/// The result will be Error if the whole operation failed (e.g. couldn't read snippets)
-/// or Ok with a list of results for each snippet found in the file.
+/// Runs checks in a temporarily set up package,
+/// installing the given dependencies using `gleam add`.
+/// The result will be `Error` if the whole operation failed (e.g. couldn't read snippets)
+/// or `Ok` with a list of results for each snippet found in the file.
 pub fn check_in_tmp_package(
   config: CheckConfig,
   dependencies: List(String),
@@ -70,6 +85,7 @@ pub fn check_in_tmp_package(
   use temp_dir <- with_tempdir()
   use package_dir <- try(set_up_package(temp_dir, dependencies))
   use snippet <- check_snippets_in(config.filename, config.filter)
+
   check_in_dir(
     snippet,
     package_dir,
