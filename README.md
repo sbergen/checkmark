@@ -1,12 +1,16 @@
 # checkmark
 
+[![Package Version](https://img.shields.io/hexpm/v/checkmark)](https://hex.pm/packages/checkmark)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/checkmark/)
+
 Checkmark is a library for checking that gleam code in markdown files
 type checks, builds, or runs successfully.
 
-I have not published it as a hex package yet,
-but plan on doing so soon, after getting some feedback.
-
 ## Example
+
+```sh
+gleam add checkmark
+```
 
 ```gleam
 import checkmark
@@ -23,3 +27,5 @@ pub fn main() {
     |> checkmark.check_in_current_package("checkmark_tmp.gleam")
 }
 ```
+
+Further documentation can be found at <https://hexdocs.pm/checkmark>.
