@@ -199,10 +199,10 @@ fn with_tempfile(
 }
 
 fn create_file(path: String, allow_overwrite: Bool) -> CheckResult {
-  case allow_overwrite, simplifile.create_file(path) {
-    True, Error(simplifile.Eexist) -> Ok(Nil)
-    _, Ok(_) -> Ok(Nil)
-    _, e -> Error(RunFailed(string.inspect(e)))
+  case simplifile.create_file(path) {
+    Error(simplifile.Eexist) if allow_overwrite -> Ok(Nil)
+    Ok(_) -> Ok(Nil)
+    Error(e) -> Error(RunFailed(string.inspect(e)))
   }
 }
 
