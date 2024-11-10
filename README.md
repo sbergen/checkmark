@@ -18,7 +18,7 @@ pub fn main() {
   let assert Ok(cwd) = simplifile.current_directory()
   let file = filepath.join(cwd, "README.md")
 
-  // Checks that a single gleam code block in README.md that start with "import"
+  // Checks that a single gleam code block in README.md that starts with "import"
   // passes type checks, adding "my_dependency" as a package.
   let assert Ok([Ok(Nil)]) =
     checkmark.check(
