@@ -1,9 +1,7 @@
 import checkmark
 import filepath
-import gleam/io
 import gleam/string
 import gleeunit
-import gleeunit/should
 
 pub fn main() {
   gleeunit.main()
@@ -13,7 +11,8 @@ const default_file = "checkmark_tmp.gleam"
 
 pub fn check_our_readme_test() {
   let assert Ok([Ok(_)]) =
-    checkmark.new() |> checkmark.check_in_current_package("checkmark_tmp.gleam")
+    checkmark.new()
+    |> checkmark.check_in_current_package(default_file)
 }
 
 pub fn check_ok_local_test() {
