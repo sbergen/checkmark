@@ -10,9 +10,9 @@ pub fn main() {
 const default_file = "checkmark_tmp.gleam"
 
 pub fn check_our_readme_test() {
-  let assert Ok([Ok(_)]) =
-    checkmark.new()
-    |> checkmark.check_in_current_package(default_file)
+  checkmark.new()
+  |> checkmark.check_in_current_package(default_file)
+  |> checkmark.print_failures(panic_if_failed: True)
 }
 
 pub fn check_ok_local_test() {

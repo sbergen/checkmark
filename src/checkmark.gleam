@@ -1,7 +1,9 @@
 import exception
 import filepath
 import gleam/function
+import gleam/io
 import gleam/list
+import gleam/option.{type Option, None, Some}
 import gleam/result.{try}
 import gleam/string
 import kirala/markdown/parser
@@ -93,6 +95,66 @@ pub fn check_in_tmp_package(
     True,
     config.operation,
   )
+}
+
+/// Prints errors to stderr, as using `panic` or `let assert`
+/// doesn't usually print nicely on erlang
+/// (the data is shown as binary,
+/// as the compiler output contains lost non-ASCII characters).
+/// Optionally panic, if `panic_if_failed` is `True`.
+pub fn print_failures(
+  result: Result(List(CheckResult), String),
+  panic_if_failed panic_if_failed: Bool,
+) -> Nil {
+  let error_messages = case result {
+    Ok(results) -> {
+      case list.any(results, result.is_error) {
+        True -> summarize_results(results)
+        False -> None
+      }
+    }
+    Error(error) -> Some("Failed to run: " <> error)
+  }
+
+  case error_messages {
+    Some(errors) -> {
+      io.println_error(errors)
+      case panic_if_failed {
+        True -> panic as "checkmark checks failed!"
+        False -> Nil
+      }
+    }
+    None -> Nil
+  }
+}
+
+fn summarize_results(results: List(CheckResult)) -> Option(String) {
+  Some({
+    let indexed =
+      list.range(1, list.length(results))
+      |> list.zip(results)
+    {
+      use #(index, result) <- list.flat_map(indexed)
+
+      let #(status, error) = case result {
+        Error(e) ->
+          case e {
+            CheckFailed(e) -> #("Check failed!", Some(e))
+            RunFailed(e) -> #("Failed to run check!", Some(e))
+          }
+        Ok(_) -> #("Check passed!", None)
+      }
+
+      [
+        Some(""),
+        Some("Snippet " <> string.inspect(index) <> ": " <> status),
+        Some("-----------------------------------------"),
+        error,
+      ]
+    }
+    |> option.values
+    |> string.join("\n")
+  })
 }
 
 fn set_up_package(
