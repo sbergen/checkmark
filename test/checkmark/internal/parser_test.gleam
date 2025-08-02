@@ -25,11 +25,13 @@ pub fn basic_snippet_test() {
 }
 
 pub fn indented_snippet_test() {
-  assert parser.parse("   ```gleam\n   code\n   more_code\n  ```")
+  assert parser.parse(
+      "   ```gleam\n   code\n     more_code\n not indented enough\n  ```",
+    )
     == [
       FencedCode(
         1,
-        "   code\n   more_code\n",
+        "code\n  more_code\nnot indented enough\n",
         Fence("```", "gleam", 3),
         Some(Fence("```", "", 2)),
       ),

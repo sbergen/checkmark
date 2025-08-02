@@ -60,7 +60,7 @@ fn parse_lines(
       case current_section {
         None -> #(sections, Some(FencedCodeBuilder(line, [], fence)))
         Some(OtherBuilder(prev_line, parts)) -> #(
-          [Other(prev_line, parts_to_string(parts)), ..sections],
+          [Other(prev_line, parts_to_string(parts, 0)), ..sections],
           Some(FencedCodeBuilder(line, [], fence)),
         )
         Some(FencedCodeBuilder(start_line:, parts:, start_fence:)) ->
@@ -69,7 +69,7 @@ fn parse_lines(
               [
                 FencedCode(
                   start_line,
-                  parts_to_string(parts),
+                  parts_to_string(parts, start_fence.indent),
                   start_fence,
                   Some(fence),
                 ),
@@ -96,11 +96,16 @@ fn parse_lines(
         Some(builder) ->
           case builder {
             FencedCodeBuilder(start_line:, start_fence:, parts:) -> [
-              FencedCode(start_line, parts_to_string(parts), start_fence, None),
+              FencedCode(
+                start_line,
+                parts_to_string(parts, start_fence.indent),
+                start_fence,
+                None,
+              ),
               ..sections
             ]
             OtherBuilder(start_line:, parts:) -> [
-              Other(start_line, parts_to_string(parts)),
+              Other(start_line, parts_to_string(parts, 0)),
               ..sections
             ]
           }
@@ -127,8 +132,19 @@ fn should_close(start: Fence, end: Fence) {
   string.starts_with(end.fence, start.fence)
 }
 
-fn parts_to_string(parts: List(String)) -> String {
-  parts |> list.reverse |> string.join("")
+fn parts_to_string(parts: List(String), indent: Int) -> String {
+  parts
+  |> list.map(remove_indent_up_to(_, indent))
+  |> list.reverse
+  |> string.join("")
+}
+
+fn remove_indent_up_to(string: String, indent: Int) -> String {
+  case indent, string {
+    0, _ -> string
+    _, " " <> rest -> remove_indent_up_to(rest, indent - 1)
+    _, _ -> string
+  }
 }
 
 fn parse_fence(line: String) -> Option(Fence) {
