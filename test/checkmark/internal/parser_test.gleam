@@ -11,14 +11,14 @@ pub fn no_snippets_test() {
 }
 
 pub fn basic_snippet_test() {
-  assert parser.parse("start\n```gleam\ncode\r\nmore_code\n```\nrest")
+  assert parser.parse("start\n```gleam\ncode\r\nmore_code\n``` \nrest")
     == [
       Other(1, "start\n"),
       FencedCode(
         2,
         "code\r\nmore_code\n",
-        Fence("```", "gleam", 0),
-        Some(Fence("```", "", 0)),
+        Fence("```", "gleam\n", 0),
+        Some(Fence("```", " \n", 0)),
       ),
       Other(6, "rest"),
     ]
@@ -32,7 +32,7 @@ pub fn indented_snippet_test() {
       FencedCode(
         1,
         "code\n  more_code\nnot indented enough\n",
-        Fence("```", "gleam", 3),
+        Fence("```", "gleam\n", 3),
         Some(Fence("```", "", 2)),
       ),
     ]
@@ -44,7 +44,7 @@ pub fn non_matching_fences_test() {
       FencedCode(
         1,
         "```\n~~~\ncode\n",
-        Fence("````", "", 0),
+        Fence("````", "\n", 0),
         Some(Fence("````", "", 0)),
       ),
     ]
@@ -52,7 +52,7 @@ pub fn non_matching_fences_test() {
 
 pub fn missing_end_fence_test() {
   assert parser.parse("```\ncode")
-    == [FencedCode(1, "code", Fence("```", "", 0), None)]
+    == [FencedCode(1, "code", Fence("```", "\n", 0), None)]
 }
 
 pub fn empty_fence_test() {
@@ -67,8 +67,8 @@ pub fn emtpy_line_preservation_test() {
       FencedCode(
         4,
         "\ncode\n\n",
-        Fence("```", "", 0),
-        Some(Fence("```", "", 0)),
+        Fence("```", "\n", 0),
+        Some(Fence("```", "\n", 0)),
       ),
       Other(9, "\n\n"),
     ]

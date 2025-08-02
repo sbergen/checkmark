@@ -30,6 +30,6 @@ pub fn example_test() {
 }
 ```
 
-These examples are, in fact, kept up to date and checked using checmark!
+These examples are, in fact, kept up to date and checked using checkmark!
 
 Further documentation can be found at <https://hexdocs.pm/checkmark>.

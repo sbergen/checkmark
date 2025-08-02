@@ -40,7 +40,7 @@ fn parse_lines(
   ending: String,
   rest: String,
 ) {
-  let #(sections, current_section) = case parse_fence(content) {
+  let #(sections, current_section) = case parse_fence(content, ending) {
     None -> {
       let current_section = case current_section {
         None -> OtherBuilder(line, [ending, content])
@@ -147,20 +147,20 @@ fn remove_indent_up_to(string: String, indent: Int) -> String {
   }
 }
 
-fn parse_fence(line: String) -> Option(Fence) {
+fn parse_fence(line: String, ending: String) -> Option(Fence) {
   // A code fence is a sequence of at least three consecutive backtick
   // characters (`) or tildes (~). (Tildes and backticks cannot be mixed.) 
   // A fenced code block begins with a code fence, 
   // preceded by up to three spaces of indentation.
   case line {
-    "```" <> rest -> Some(build_fence("`", 0, 3, rest))
-    " ```" <> rest -> Some(build_fence("`", 1, 3, rest))
-    "  ```" <> rest -> Some(build_fence("`", 2, 3, rest))
-    "   ```" <> rest -> Some(build_fence("`", 3, 3, rest))
-    "~~~" <> rest -> Some(build_fence("~", 0, 3, rest))
-    " ~~~" <> rest -> Some(build_fence("~", 1, 3, rest))
-    "  ~~~" <> rest -> Some(build_fence("~", 2, 3, rest))
-    "   ~~~" <> rest -> Some(build_fence("~", 3, 3, rest))
+    "```" <> rest -> Some(build_fence("`", 0, 3, rest, ending))
+    " ```" <> rest -> Some(build_fence("`", 1, 3, rest, ending))
+    "  ```" <> rest -> Some(build_fence("`", 2, 3, rest, ending))
+    "   ```" <> rest -> Some(build_fence("`", 3, 3, rest, ending))
+    "~~~" <> rest -> Some(build_fence("~", 0, 3, rest, ending))
+    " ~~~" <> rest -> Some(build_fence("~", 1, 3, rest, ending))
+    "  ~~~" <> rest -> Some(build_fence("~", 2, 3, rest, ending))
+    "   ~~~" <> rest -> Some(build_fence("~", 3, 3, rest, ending))
     _ -> None
   }
 }
@@ -170,10 +170,11 @@ fn build_fence(
   indent: Int,
   delimiters: Int,
   rest: String,
+  ending: String,
 ) -> Fence {
   case string.pop_grapheme(rest) {
     Ok(#(first, rest)) if first == character ->
-      build_fence(character, indent, delimiters + 1, rest)
-    _ -> Fence(string.repeat(character, delimiters), rest, indent)
+      build_fence(character, indent, delimiters + 1, rest, ending)
+    _ -> Fence(string.repeat(character, delimiters), rest <> ending, indent)
   }
 }

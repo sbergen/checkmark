@@ -1,8 +1,10 @@
 import checkmark/internal/parser.{type Fence}
+import gleam/dict.{type Dict}
 import gleam/list
 import gleam/option.{type Option}
 import gleam/result
 import gleam/string
+import splitter
 
 pub opaque type Checker(e) {
   Checker(
@@ -43,17 +45,11 @@ pub fn should_contain_contents_of(
 }
 
 pub fn check(file: File(e)) -> Result(Nil, List(CheckError(e))) {
-  use content <- result.try(
-    read_file(file.checker, file.name)
-    |> result.map_error(list.wrap),
-  )
-
-  let content = parser.parse(content)
-
+  use contents <- result.try(parse_file(file))
   let results = {
     use #(filename, tag) <- list.map(file.expectations)
     use expected <- result.try(read_file(file.checker, filename))
-    check_one(content, expected, tag)
+    check_one(contents, expected, tag)
   }
 
   let #(_, errors) = result.partition(results)
@@ -62,6 +58,98 @@ pub fn check(file: File(e)) -> Result(Nil, List(CheckError(e))) {
     [] -> Ok(Nil)
     _ -> Error(errors)
   }
+}
+
+pub fn update(file: File(e)) -> Result(Nil, List(CheckError(e))) {
+  use contents <- result.try(parse_file(file))
+  let results = {
+    use #(filename, tag) <- list.map(file.expectations)
+    use _ <- result.try(find_match(contents, tag, []))
+    use expected <- result.try(read_file(file.checker, filename))
+    Ok(#(tag, expected))
+  }
+
+  let #(replacements, errors) = result.partition(results)
+
+  case errors {
+    [] -> {
+      let contents = render_replacements(contents, dict.from_list(replacements))
+      file.checker.write(file.name, contents)
+      |> result.map_error(fn(e) { [CouldNotWriteFile(e)] })
+    }
+    _ -> Error(errors)
+  }
+}
+
+fn render_replacements(
+  contents: List(parser.Section),
+  replacements: Dict(String, String),
+) -> String {
+  contents
+  |> list.map(fn(section) {
+    case section {
+      parser.FencedCode(_, content, start_fence, end_fence) -> {
+        case dict.get(replacements, string.trim(start_fence.info)) {
+          Ok(replacement) -> render_code(start_fence, replacement, end_fence)
+          Error(_) -> render_code(start_fence, content, end_fence)
+        }
+      }
+      parser.Other(_, content) -> content
+    }
+  })
+  |> string.join("")
+}
+
+fn render_code(
+  start_fence: Fence,
+  content: String,
+  end_fence: Option(Fence),
+) -> String {
+  // This is not very optimized, but we probably don't need to care...
+
+  let content = case start_fence.indent {
+    0 -> content
+    amount ->
+      indent(
+        splitter.new(["\n", "\r\n"]),
+        string.repeat(" ", amount),
+        content,
+        [],
+      )
+  }
+
+  let without_end = render_fence(start_fence) <> content
+  case end_fence {
+    option.None -> without_end
+    option.Some(end_fence) -> without_end <> render_fence(end_fence)
+  }
+}
+
+fn indent(
+  line_ends: splitter.Splitter,
+  with: String,
+  rest: String,
+  parts: List(String),
+) -> String {
+  case rest {
+    "" -> parts |> list.reverse |> string.join("")
+    _ -> {
+      let #(content, ending, rest) = splitter.split(line_ends, rest)
+      indent(line_ends, with, rest, [ending, content, with, ..parts])
+    }
+  }
+}
+
+fn render_fence(fence: Fence) -> String {
+  string.repeat(" ", fence.indent) <> fence.fence <> fence.info
+}
+
+fn parse_file(
+  file: File(e),
+) -> Result(List(parser.Section), List(CheckError(e))) {
+  read_file(file.checker, file.name)
+  |> result.map_error(list.wrap)
+  |> result.map(parser.parse)
 }
 
 fn read_file(
@@ -76,7 +164,7 @@ fn check_one(
   expected: String,
   tag: String,
 ) -> Result(Nil, CheckError(e)) {
-  use snippet <- result.try(find_match(content, expected, tag, []))
+  use snippet <- result.try(find_match(content, tag, []))
   case snippet.content == expected {
     True -> Ok(Nil)
     False -> Error(ContentDidNotMatch(tag))
@@ -89,7 +177,6 @@ type Snippet {
 
 fn find_match(
   content: List(parser.Section),
-  expected: String,
   tag: String,
   found: List(#(Int, Snippet)),
 ) -> Result(Snippet, CheckError(e)) {
@@ -109,12 +196,12 @@ fn find_match(
       case string.trim(start_fence.info) == tag {
         True -> {
           let result = #(line, Snippet(content, start_fence, end_fence))
-          find_match(rest, expected, tag, [result, ..found])
+          find_match(rest, tag, [result, ..found])
         }
-        False -> find_match(rest, expected, tag, found)
+        False -> find_match(rest, tag, found)
       }
     }
 
-    [_, ..rest] -> find_match(rest, expected, tag, found)
+    [_, ..rest] -> find_match(rest, tag, found)
   }
 }

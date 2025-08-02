@@ -1,4 +1,5 @@
 import checkmark.{CouldNotReadFile, MultipleTagsFound, TagNotFound}
+import gleam/erlang/process
 import gleeunit
 import simplifile
 
@@ -38,4 +39,22 @@ pub fn check_missing_source_file_test() {
     |> checkmark.should_contain_contents_of("this-file-does-not-exist", "")
     |> checkmark.check()
     == Error([CouldNotReadFile(simplifile.Enoent)])
+}
+
+pub fn update_test() {
+  let self = process.new_subject()
+  let write = fn(_, content) {
+    process.send(self, content)
+    Ok(Nil)
+  }
+
+  assert checkmark.new(simplifile.read, write)
+    |> checkmark.file("./test/update.md")
+    |> checkmark.should_contain_contents_of("./test/test_content.txt", "update")
+    |> checkmark.update()
+    == Ok(Nil)
+
+  let assert Ok(written) = process.receive(self, 0)
+  let assert Ok(expected) = simplifile.read("./test/expected_updated.md")
+  assert written == expected
 }
