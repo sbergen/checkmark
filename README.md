@@ -11,10 +11,12 @@ matches content in files, or to automatically update it.
 ```sh
 gleam add checkmark
 gleam add simplifile
+gleam add envoy
 ```
 
 ```gleam
 import checkmark
+import envoy
 import simplifile
 
 pub fn example_test() {
@@ -25,7 +27,10 @@ pub fn example_test() {
       "./test/example_test.gleam",
       tagged: "gleam",
     )
-    |> checkmark.check()
+    // Update locally, check on CI
+    |> checkmark.check_or_update(
+      when: envoy.get("GITHUB_WORKFLOW") == Error(Nil),
+    )
     == Ok(Nil)
 }
 ```

@@ -44,6 +44,16 @@ pub fn should_contain_contents_of(
   File(..file, expectations: [#(source, tag), ..file.expectations])
 }
 
+pub fn check_or_update(
+  file: File(e),
+  when should_update: Bool,
+) -> Result(Nil, List(CheckError(e))) {
+  case should_update {
+    True -> update(file)
+    False -> check(file)
+  }
+}
+
 pub fn check(file: File(e)) -> Result(Nil, List(CheckError(e))) {
   use contents <- result.try(parse_file(file))
   let results = {
