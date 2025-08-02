@@ -4,7 +4,7 @@ version = "2.0.0"
 description = "Gleam markdown snippet validator"
 licences = ["Apache-2.0"]
 repository = { type = "github", user = "sbergen", repo = "checkmark" }
-internal_modules = ["test_overwrite"]
+internal_modules = ["checkmark/internal/*"]
 
 [dependencies]
 gleam_stdlib = ">= 0.34.0 and < 2.0.0"
