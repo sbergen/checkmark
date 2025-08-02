@@ -1,3 +1,6 @@
+//// Link code in files with code blocks in markdown,
+//// and check that they are up to date, or update them automatically.
+
 import checkmark/internal/parser.{type Fence}
 import gleam/dict.{type Dict}
 import gleam/list
@@ -6,6 +9,9 @@ import gleam/result
 import gleam/string
 import splitter
 
+/// Contains the configuration for checking files.
+/// Not tied to a single file, may contain more configuration later.
+/// The error type depends on the IO library used.
 pub opaque type Checker(e) {
   Checker(
     read: fn(String) -> Result(String, e),
@@ -13,10 +19,14 @@ pub opaque type Checker(e) {
   )
 }
 
+/// A markdown file to check, which can be linked to snippets in multiple other files.
+/// The error type depends on the IO library used.
 pub opaque type File(e) {
   File(name: String, checker: Checker(e), expectations: List(#(String, String)))
 }
 
+/// Any error that can happen during checking or updating a markdown file.
+/// The error type depends on the IO library used.
 pub type CheckError(e) {
   CouldNotReadFile(error: e)
   CouldNotWriteFile(error: e)
@@ -25,6 +35,7 @@ pub type CheckError(e) {
   ContentDidNotMatch(tag: String)
 }
 
+/// Builds a new checker with the provided file IO functions.
 pub fn new(
   read_file: fn(String) -> Result(String, e),
   write_file: fn(String, String) -> Result(Nil, e),
@@ -32,10 +43,17 @@ pub fn new(
   Checker(read_file, write_file)
 }
 
+/// Configures a markdown file to be checked or updated.
 pub fn file(checker: Checker(e), filename: String) -> File(e) {
   File(filename, checker, [])
 }
 
+/// Specify that the markdown file should contain the contents of another file as a code block.
+/// The tag is what comes after the block fence.
+/// e.g. "```gleam 1" would match the tag "gleam 1".
+/// Whitespace is trimmed off the tag.
+/// Note that you still need to call `check`, `update` or `check_or_update` after this,
+/// this function only adds to the configuration.
 pub fn should_contain_contents_of(
   file: File(e),
   source: String,
@@ -44,6 +62,7 @@ pub fn should_contain_contents_of(
   File(..file, expectations: [#(source, tag), ..file.expectations])
 }
 
+/// Convenience function for either checking or updating depending on a boolean.
 pub fn check_or_update(
   file: File(e),
   when should_update: Bool,
@@ -54,6 +73,7 @@ pub fn check_or_update(
   }
 }
 
+/// Checks that the markdown file contains code blocks that match the content of the specified files.
 pub fn check(file: File(e)) -> Result(Nil, List(CheckError(e))) {
   use contents <- result.try(parse_file(file))
   let results = {
@@ -70,6 +90,7 @@ pub fn check(file: File(e)) -> Result(Nil, List(CheckError(e))) {
   }
 }
 
+/// Updates the code blocks in the markdown file from the specified files.
 pub fn update(file: File(e)) -> Result(Nil, List(CheckError(e))) {
   use contents <- result.try(parse_file(file))
   let results = {
