@@ -1,82 +1,60 @@
-import checkmark
-import filepath
-import gleam/string
+import checkmark.{CouldNotReadFile, MultipleTagsFound, TagNotFound}
+import gleam/erlang/process
 import gleeunit
+import simplifile
 
 pub fn main() {
   gleeunit.main()
 }
 
-const default_file = "checkmark_tmp.gleam"
-
-pub fn check_our_readme_test() {
-  checkmark.new()
-  |> checkmark.check_in_current_package(default_file)
-  |> checkmark.print_failures(panic_if_failed: True)
+pub fn check_existing_file_test() {
+  assert checkmark.new(simplifile.read, simplifile.write)
+    |> checkmark.file("./test/test.md")
+    |> checkmark.should_contain_contents_of(
+      "./test/test_content.txt",
+      tagged: "multiple",
+    )
+    |> checkmark.should_contain_contents_of(
+      "./test/test_content.txt",
+      tagged: "single",
+    )
+    |> checkmark.should_contain_contents_of(
+      "./test/test_content.txt",
+      tagged: "not_present",
+    )
+    |> checkmark.check()
+    == Error([MultipleTagsFound("multiple", [1, 6]), TagNotFound("not_present")])
 }
 
-pub fn check_ok_local_test() {
-  let assert Ok([Ok(_)]) =
-    checkmark.new()
-    |> checkmark.snippets_in(test_asset("ok.md"))
-    |> checkmark.check_in_current_package(default_file)
+pub fn check_missing_markdown_file_test() {
+  assert checkmark.new(simplifile.read, simplifile.write)
+    |> checkmark.file("this-file-does-not-exist")
+    |> checkmark.check()
+    == Error([CouldNotReadFile(simplifile.Enoent)])
 }
 
-pub fn check_ok_isolated_test() {
-  let assert Ok([Ok(_)]) =
-    checkmark.new()
-    |> checkmark.snippets_in(test_asset("ok.md"))
-    |> checkmark.check_in_tmp_package(["filepath"])
+pub fn check_missing_source_file_test() {
+  assert checkmark.new(simplifile.read, simplifile.write)
+    |> checkmark.file("./test/test.md")
+    |> checkmark.should_contain_contents_of("this-file-does-not-exist", "")
+    |> checkmark.check()
+    == Error([CouldNotReadFile(simplifile.Enoent)])
 }
 
-pub fn check_local_overwrite_not_allowed() {
-  let assert Ok([Error(_)]) =
-    checkmark.new()
-    |> checkmark.snippets_in(test_asset("ok.md"))
-    |> checkmark.check_in_current_package("test_overwrite.gleam")
-}
+pub fn update_test() {
+  let self = process.new_subject()
+  let write = fn(_, content) {
+    process.send(self, content)
+    Ok(Nil)
+  }
 
-pub fn check_ok_and_failure_test() {
-  let assert Ok([Ok(_), Error(checkmark.CheckFailed(_))]) =
-    checkmark.new()
-    |> checkmark.snippets_in(test_asset("ok_and_failure.md"))
-    |> checkmark.check_in_current_package(default_file)
-}
+  assert checkmark.new(simplifile.read, write)
+    |> checkmark.file("./test/update.md")
+    |> checkmark.should_contain_contents_of("./test/test_content.txt", "update")
+    |> checkmark.update()
+    == Ok(Nil)
 
-pub fn check_runtime_failure_local_test() {
-  let assert Ok([Error(checkmark.CheckFailed(error))]) =
-    checkmark.new()
-    |> checkmark.using(checkmark.Run)
-    |> checkmark.snippets_in(test_asset("runtime_failure.md"))
-    |> checkmark.check_in_current_package(default_file)
-  let assert True = string.contains(error, "My Panic")
-}
-
-pub fn check_runtime_failure_isolated_test() {
-  let assert Ok([Error(checkmark.CheckFailed(error))]) =
-    checkmark.new()
-    |> checkmark.using(checkmark.Run)
-    |> checkmark.snippets_in(test_asset("runtime_failure.md"))
-    |> checkmark.check_in_tmp_package([])
-  let assert True = string.contains(error, "My Panic")
-}
-
-pub fn check_type_failure_test() {
-  let assert Ok([Error(checkmark.CheckFailed(error))]) =
-    checkmark.new()
-    |> checkmark.snippets_in(test_asset("type_failure.md"))
-    |> checkmark.check_in_current_package(default_file)
-  let assert True = string.contains(error, "Type mismatch")
-}
-
-pub fn check_filter_test() {
-  let assert Ok([Ok(_)]) =
-    checkmark.new()
-    |> checkmark.snippets_in(test_asset("with_and_without_import.md"))
-    |> checkmark.filtering(string.starts_with(_, "import"))
-    |> checkmark.check_in_current_package(default_file)
-}
-
-fn test_asset(filename: String) -> String {
-  filepath.join("test", filename)
+  let assert Ok(written) = process.receive(self, 0)
+  let assert Ok(expected) = simplifile.read("./test/expected_updated.md")
+  assert written == expected
 }
