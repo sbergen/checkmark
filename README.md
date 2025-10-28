@@ -9,9 +9,7 @@ matches content in files, or to automatically update it.
 ## Example
 
 ```sh
-gleam add checkmark
-gleam add simplifile
-gleam add envoy
+gleam add --dev checkmark simplifile envoy
 ```
 
 ```gleam
