@@ -1,5 +1,5 @@
 import checkmark/internal/code_extractor.{
-  type File, extract_function, extract_function_body,
+  type File, extract_function, extract_function_body, extract_type,
 }
 import gleam/string
 
@@ -56,6 +56,27 @@ pub fn extract_function_empty_body_test() {
     ])
 
   assert extract_function_body(module, "main") == Ok([])
+}
+
+pub fn extract_type_test() {
+  let module =
+    load_module([
+      "import gleam/result",
+      "",
+      "type Wibble {",
+      "  Wibble",
+      "  Wobble",
+      "}",
+      "",
+    ])
+
+  assert extract_type(module, "Wibble")
+    == Ok([
+      "type Wibble {\n",
+      "  Wibble\n",
+      "  Wobble\n",
+      "}\n",
+    ])
 }
 
 fn join(lines: List(String)) -> String {

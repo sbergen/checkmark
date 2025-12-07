@@ -51,6 +51,14 @@ pub fn extract_function_body(
   Ok(unindent(indented))
 }
 
+pub fn extract_type(
+  file: File,
+  name: String,
+) -> Result(List(String), ExtractError) {
+  use function <- result.try(find_type(file, name))
+  extract_source(file, function.location)
+}
+
 fn unindent(indented: List(String)) -> List(String) {
   let indent_amount =
     list.first(indented)
@@ -82,6 +90,16 @@ fn find_function(
   name: String,
 ) -> Result(glance.Function, ExtractError) {
   file.module.functions
+  |> list.map(fn(definition) { definition.definition })
+  |> list.find(fn(f) { f.name == name })
+  |> result.replace_error(FunctionNotFound(name))
+}
+
+fn find_type(
+  file: File,
+  name: String,
+) -> Result(glance.CustomType, ExtractError) {
+  file.module.custom_types
   |> list.map(fn(definition) { definition.definition })
   |> list.find(fn(f) { f.name == name })
   |> result.replace_error(FunctionNotFound(name))
