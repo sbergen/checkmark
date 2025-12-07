@@ -1,22 +1,55 @@
 import checkmark/internal/parser.{Fence, FencedCode, Other}
 import gleam/option.{None, Some}
+import gleam/string
+
+fn lines(lines: List(String)) -> String {
+  lines |> string.join("\n")
+}
+
+fn comment_agnostic(body: fn(Bool) -> Nil) -> Nil {
+  body(False)
+  body(True)
+}
 
 pub fn empty_string_test() {
-  assert parser.parse("") == []
+  use in_comments <- comment_agnostic()
+  assert parser.parse("", in_comments) == []
 }
 
 pub fn no_snippets_test() {
-  let text = "one\ntwo\r\nthree"
-  assert parser.parse(text) == [parser.Other(1, text)]
+  use in_comments <- comment_agnostic()
+
+  let text =
+    lines([
+      "one",
+      "two\r",
+      "three",
+    ])
+  assert parser.parse(text, in_comments) == [parser.Other(1, text)]
 }
 
 pub fn basic_snippet_test() {
-  assert parser.parse("start\n```gleam\ncode\r\nmore_code\n``` \nrest")
+  assert parser.parse(
+      lines([
+        "start",
+        "```gleam",
+        "code\r",
+        "more_code",
+        "``` ",
+        "rest",
+      ]),
+      False,
+    )
     == [
       Other(1, "start\n"),
       FencedCode(
         2,
-        "code\r\nmore_code\n",
+        "",
+        lines([
+          "code\r",
+          "more_code",
+          "",
+        ]),
         Fence("```", "gleam\n", 0),
         Some(Fence("```", " \n", 0)),
       ),
@@ -24,14 +57,131 @@ pub fn basic_snippet_test() {
     ]
 }
 
+pub fn doc_comment_test() {
+  assert parser.parse(
+      lines([
+        "pub const answer = 42",
+        "",
+        "/// start",
+        "/// ```gleam",
+        "/// code\r",
+        "/// more_code",
+        "/// ``` ",
+        "pub const answer_str = \"*\"",
+      ]),
+      True,
+    )
+    == [
+      Other(
+        1,
+        lines([
+          "pub const answer = 42",
+          "",
+          "/// start",
+          "",
+        ]),
+      ),
+      FencedCode(
+        4,
+        "/// ",
+        lines([
+          "code\r",
+          "more_code",
+          "",
+        ]),
+        Fence("```", "gleam\n", 0),
+        Some(Fence("```", " \n", 0)),
+      ),
+      Other(8, "pub const answer_str = \"*\""),
+    ]
+}
+
+pub fn module_comment_test() {
+  assert parser.parse(
+      lines([
+        "//// start",
+        "//// ```gleam",
+        "//// code",
+        "//// ``` ",
+        "//// rest",
+      ]),
+      True,
+    )
+    == [
+      Other(
+        1,
+        lines([
+          "//// start",
+          "",
+        ]),
+      ),
+      FencedCode(
+        2,
+        "//// ",
+        lines([
+          "code",
+          "",
+        ]),
+        Fence("```", "gleam\n", 0),
+        Some(Fence("```", " \n", 0)),
+      ),
+      Other(5, "//// rest"),
+    ]
+}
+
+pub fn unfinished_comment_block_test() {
+  assert parser.parse(
+      lines([
+        "//// start",
+        "//// ```gleam",
+        "//// code",
+        "rest",
+      ]),
+      True,
+    )
+    == [
+      Other(
+        1,
+        lines([
+          "//// start",
+          "",
+        ]),
+      ),
+      FencedCode(
+        2,
+        "//// ",
+        lines([
+          "code",
+          "",
+        ]),
+        Fence("```", "gleam\n", 0),
+        None,
+      ),
+      Other(4, "rest"),
+    ]
+}
+
 pub fn indented_snippet_test() {
   assert parser.parse(
-      "   ```gleam\n   code\n     more_code\n not indented enough\n  ```",
+      lines([
+        "   ```gleam",
+        "   code",
+        "     more_code",
+        " not indented enough",
+        "  ```",
+      ]),
+      False,
     )
     == [
       FencedCode(
         1,
-        "code\n  more_code\nnot indented enough\n",
+        "",
+        lines([
+          "code",
+          "  more_code",
+          "not indented enough",
+          "",
+        ]),
         Fence("```", "gleam\n", 3),
         Some(Fence("```", "", 2)),
       ),
@@ -39,11 +189,26 @@ pub fn indented_snippet_test() {
 }
 
 pub fn non_matching_fences_test() {
-  assert parser.parse("````\n```\n~~~\ncode\n````")
+  assert parser.parse(
+      lines([
+        "````",
+        "```",
+        "~~~",
+        "code",
+        "````",
+      ]),
+      False,
+    )
     == [
       FencedCode(
         1,
-        "```\n~~~\ncode\n",
+        "",
+        lines([
+          "```",
+          "~~~",
+          "code",
+          "",
+        ]),
         Fence("````", "\n", 0),
         Some(Fence("````", "", 0)),
       ),
@@ -51,25 +216,67 @@ pub fn non_matching_fences_test() {
 }
 
 pub fn missing_end_fence_test() {
-  assert parser.parse("```\ncode")
-    == [FencedCode(1, "code", Fence("```", "\n", 0), None)]
+  assert parser.parse(
+      lines([
+        "```",
+        "code",
+      ]),
+      False,
+    )
+    == [FencedCode(1, "", "code", Fence("```", "\n", 0), None)]
 }
 
 pub fn empty_fence_test() {
-  assert parser.parse("```info")
-    == [FencedCode(1, "", Fence("```", "info", 0), None)]
+  assert parser.parse("```info", False)
+    == [FencedCode(1, "", "", Fence("```", "info", 0), None)]
 }
 
 pub fn emtpy_line_preservation_test() {
-  assert parser.parse("\ntext\n\n```\n\ncode\n\n```\n\n\n")
+  assert parser.parse(
+      lines([
+        "",
+        "text",
+        "",
+        "```",
+        "",
+        "code",
+        "",
+        "```",
+        "",
+        "",
+        "",
+      ]),
+      False,
+    )
     == [
-      Other(1, "\ntext\n\n"),
+      Other(
+        1,
+        lines([
+          "",
+          "text",
+          "",
+          "",
+        ]),
+      ),
       FencedCode(
         4,
-        "\ncode\n\n",
+        "",
+        lines([
+          "",
+          "code",
+          "",
+          "",
+        ]),
         Fence("```", "\n", 0),
         Some(Fence("```", "\n", 0)),
       ),
-      Other(9, "\n\n"),
+      Other(
+        9,
+        lines([
+          "",
+          "",
+          "",
+        ]),
+      ),
     ]
 }

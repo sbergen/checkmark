@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Deprecated
+- `file` was deprecated for clarity reasons. Use `document` instead.
+
+### Added
+
+- Adds support for replacing snippets in code comments,
+  using `comments_in` instead of `document`.
+
 ## v2.0.0 - 2025-08-02
 
 This is a complete rewrite. Instead of checking or running gleam code via checkmark,
