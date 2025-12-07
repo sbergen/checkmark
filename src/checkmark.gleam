@@ -4,7 +4,7 @@
 import checkmark/internal/parser.{type Fence}
 import gleam/dict.{type Dict}
 import gleam/list
-import gleam/option.{type Option}
+import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import splitter
@@ -130,19 +130,19 @@ pub fn update(file: File(e)) -> Result(Nil, List(CheckError(e))) {
 
 fn render_replacements(
   contents: List(parser.Section),
-  replacements: Dict(String, String),
+  replacements: Dict(String, List(String)),
 ) -> String {
   contents
-  |> list.map(fn(section) {
+  |> list.flat_map(fn(section) {
     case section {
-      parser.FencedCode(content:, start_fence:, end_fence:, prefix:, ..) -> {
+      parser.FencedCode(lines:, start_fence:, end_fence:, prefix:, ..) -> {
         case dict.get(replacements, string.trim(start_fence.info)) {
           Ok(replacement) ->
             render_code(start_fence, prefix, replacement, end_fence)
-          Error(_) -> render_code(start_fence, prefix, content, end_fence)
+          Error(_) -> render_code(start_fence, prefix, lines, end_fence)
         }
       }
-      parser.Other(_, content) -> content
+      parser.Other(lines:, ..) -> lines
     }
   })
   |> string.join("")
@@ -151,42 +151,31 @@ fn render_replacements(
 fn render_code(
   start_fence: Fence,
   prefix: String,
-  content: String,
+  content: List(String),
   end_fence: Option(Fence),
-) -> String {
-  // This is not very optimized, but we probably don't need to care...
+) -> List(String) {
+  let end_fence = option.map(end_fence, render_fence(prefix, _))
+  let without_end_fence = case start_fence.indent, prefix, end_fence {
+    0, "", None -> content
+    0, "", Some(end_fence) -> list.append(content, [end_fence])
+    amount, _, _ -> {
+      let indent = prefix <> string.repeat(" ", amount)
+      let content =
+        content
+        |> list.fold([], fn(lines, line) {
+          [string.append(indent, line), ..lines]
+        })
 
-  let content = case start_fence.indent, prefix {
-    0, "" -> content
-    amount, _ ->
-      indent(
-        splitter.new(["\n", "\r\n"]),
-        prefix <> string.repeat(" ", amount),
-        content,
-        [],
-      )
-  }
+      let content = case end_fence {
+        None -> content
+        Some(fence) -> [fence, ..content]
+      }
 
-  let without_end = render_fence(prefix, start_fence) <> content
-  case end_fence {
-    option.None -> without_end
-    option.Some(end_fence) -> without_end <> render_fence(prefix, end_fence)
-  }
-}
-
-fn indent(
-  line_ends: splitter.Splitter,
-  with: String,
-  rest: String,
-  parts: List(String),
-) -> String {
-  case rest {
-    "" -> parts |> list.reverse |> string.join("")
-    _ -> {
-      let #(content, ending, rest) = splitter.split(line_ends, rest)
-      indent(line_ends, with, rest, [ending, content, with, ..parts])
+      list.reverse(content)
     }
   }
+
+  [render_fence(prefix, start_fence), ..without_end_fence]
 }
 
 fn render_fence(prefix: String, fence: Fence) -> String {
@@ -204,13 +193,31 @@ fn parse_file(
 fn read_file(
   checker: Checker(e),
   filename: String,
-) -> Result(String, CheckError(e)) {
-  checker.read(filename) |> result.map_error(CouldNotReadFile)
+) -> Result(List(String), CheckError(e)) {
+  use content <- result.map(
+    checker.read(filename)
+    |> result.map_error(CouldNotReadFile),
+  )
+
+  splitter.new(["\n", "\r\n"]) |> to_lines(content, [])
+}
+
+fn to_lines(
+  splitter: splitter.Splitter,
+  content: String,
+  lines: List(String),
+) -> List(String) {
+  let #(line, rest) = splitter.split_after(splitter, content)
+  let lines = [line, ..lines]
+  case rest {
+    "" -> list.reverse(lines)
+    _ -> to_lines(splitter, rest, lines)
+  }
 }
 
 fn check_one(
   content: List(parser.Section),
-  expected: String,
+  expected: List(String),
   tag: String,
 ) -> Result(Nil, CheckError(e)) {
   use snippet <- result.try(find_match(content, tag, []))
@@ -221,7 +228,7 @@ fn check_one(
 }
 
 type Snippet {
-  Snippet(content: String, start_fence: Fence, end_fence: Option(Fence))
+  Snippet(content: List(String), start_fence: Fence, end_fence: Option(Fence))
 }
 
 fn find_match(
@@ -242,12 +249,12 @@ fn find_match(
       }
 
     [
-      parser.FencedCode(line_number:, content:, start_fence:, end_fence:, ..),
+      parser.FencedCode(line_number:, lines:, start_fence:, end_fence:, ..),
       ..rest
     ] -> {
       case string.trim(start_fence.info) == tag {
         True -> {
-          let result = #(line_number, Snippet(content, start_fence, end_fence))
+          let result = #(line_number, Snippet(lines, start_fence, end_fence))
           find_match(rest, tag, [result, ..found])
         }
         False -> find_match(rest, tag, found)
