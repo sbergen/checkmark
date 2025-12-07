@@ -94,7 +94,7 @@ pub fn check(file: File(e)) -> Result(Nil, List(CheckError(e))) {
   use contents <- result.try(parse_file(file))
   let results = {
     use #(filename, tag) <- list.map(file.expectations)
-    use expected <- result.try(read_file(file.checker, filename))
+    use expected <- result.try(read_lines(file.checker, filename))
     check_one(contents, expected, tag)
   }
 
@@ -112,7 +112,7 @@ pub fn update(file: File(e)) -> Result(Nil, List(CheckError(e))) {
   let results = {
     use #(filename, tag) <- list.map(file.expectations)
     use _ <- result.try(find_match(contents, tag, []))
-    use expected <- result.try(read_file(file.checker, filename))
+    use expected <- result.try(read_lines(file.checker, filename))
     Ok(#(tag, expected))
   }
 
@@ -185,7 +185,7 @@ fn render_fence(prefix: String, fence: Fence) -> String {
 fn parse_file(
   file: File(e),
 ) -> Result(List(parser.Section), List(CheckError(e))) {
-  read_file(file.checker, file.name)
+  read_lines(file.checker, file.name)
   |> result.map_error(list.wrap)
   |> result.map(parser.parse(_, file.check_in_comments))
 }
@@ -193,12 +193,16 @@ fn parse_file(
 fn read_file(
   checker: Checker(e),
   filename: String,
-) -> Result(List(String), CheckError(e)) {
-  use content <- result.map(
-    checker.read(filename)
-    |> result.map_error(CouldNotReadFile),
-  )
+) -> Result(String, CheckError(e)) {
+  checker.read(filename)
+  |> result.map_error(CouldNotReadFile)
+}
 
+fn read_lines(
+  checker: Checker(e),
+  filename: String,
+) -> Result(List(String), CheckError(e)) {
+  use content <- result.map(read_file(checker, filename))
   splitter.new(["\n", "\r\n"]) |> to_lines(content, [])
 }
 
