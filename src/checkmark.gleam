@@ -22,7 +22,12 @@ pub opaque type Checker(e) {
 /// A markdown file to check, which can be linked to snippets in multiple other files.
 /// The error type depends on the IO library used.
 pub opaque type File(e) {
-  File(name: String, checker: Checker(e), expectations: List(#(String, String)))
+  File(
+    name: String,
+    checker: Checker(e),
+    check_in_comments: Bool,
+    expectations: List(#(String, String)),
+  )
 }
 
 /// Any error that can happen during checking or updating a markdown file.
@@ -51,7 +56,12 @@ pub fn file(checker: Checker(e), filename: String) -> File(e) {
 
 /// Configures a markdown document to be checked or updated.
 pub fn document(checker: Checker(e), filename: String) -> File(e) {
-  File(filename, checker, [])
+  File(filename, checker, False, [])
+}
+
+/// Configures comments in a gleam source file to be checked or updated.
+pub fn comments_in(checker: Checker(e), filename: String) -> File(e) {
+  File(filename, checker, True, [])
 }
 
 /// Specify that the markdown file should contain the contents of another file as a code block.
@@ -125,10 +135,11 @@ fn render_replacements(
   contents
   |> list.map(fn(section) {
     case section {
-      parser.FencedCode(content:, start_fence:, end_fence:, ..) -> {
+      parser.FencedCode(content:, start_fence:, end_fence:, prefix:, ..) -> {
         case dict.get(replacements, string.trim(start_fence.info)) {
-          Ok(replacement) -> render_code(start_fence, replacement, end_fence)
-          Error(_) -> render_code(start_fence, content, end_fence)
+          Ok(replacement) ->
+            render_code(start_fence, prefix, replacement, end_fence)
+          Error(_) -> render_code(start_fence, prefix, content, end_fence)
         }
       }
       parser.Other(_, content) -> content
@@ -139,26 +150,27 @@ fn render_replacements(
 
 fn render_code(
   start_fence: Fence,
+  prefix: String,
   content: String,
   end_fence: Option(Fence),
 ) -> String {
   // This is not very optimized, but we probably don't need to care...
 
-  let content = case start_fence.indent {
-    0 -> content
-    amount ->
+  let content = case start_fence.indent, prefix {
+    0, "" -> content
+    amount, _ ->
       indent(
         splitter.new(["\n", "\r\n"]),
-        string.repeat(" ", amount),
+        prefix <> string.repeat(" ", amount),
         content,
         [],
       )
   }
 
-  let without_end = render_fence(start_fence) <> content
+  let without_end = render_fence(prefix, start_fence) <> content
   case end_fence {
     option.None -> without_end
-    option.Some(end_fence) -> without_end <> render_fence(end_fence)
+    option.Some(end_fence) -> without_end <> render_fence(prefix, end_fence)
   }
 }
 
@@ -177,8 +189,8 @@ fn indent(
   }
 }
 
-fn render_fence(fence: Fence) -> String {
-  string.repeat(" ", fence.indent) <> fence.fence <> fence.info
+fn render_fence(prefix: String, fence: Fence) -> String {
+  prefix <> string.repeat(" ", fence.indent) <> fence.fence <> fence.info
 }
 
 fn parse_file(
@@ -186,7 +198,7 @@ fn parse_file(
 ) -> Result(List(parser.Section), List(CheckError(e))) {
   read_file(file.checker, file.name)
   |> result.map_error(list.wrap)
-  |> result.map(parser.parse(_, False))
+  |> result.map(parser.parse(_, file.check_in_comments))
 }
 
 fn read_file(

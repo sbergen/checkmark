@@ -41,7 +41,7 @@ pub fn check_missing_source_file_test() {
     == Error([CouldNotReadFile(simplifile.Enoent)])
 }
 
-pub fn update_test() {
+pub fn update_markdown_test() {
   let self = process.new_subject()
   let write = fn(_, content) {
     process.send(self, content)
@@ -56,5 +56,30 @@ pub fn update_test() {
 
   let assert Ok(written) = process.receive(self, 0)
   let assert Ok(expected) = simplifile.read("./test/expected_updated.md")
+  assert written == expected
+}
+
+pub fn update_code_test() {
+  let self = process.new_subject()
+  let write = fn(_, content) {
+    process.send(self, content)
+    Ok(Nil)
+  }
+
+  assert checkmark.new(simplifile.read, write)
+    |> checkmark.comments_in("./test/test.gleam.txt")
+    |> checkmark.should_contain_contents_of(
+      "./test/test_content.txt",
+      "gleam module",
+    )
+    |> checkmark.should_contain_contents_of(
+      "./test/test_content.txt",
+      "gleam value",
+    )
+    |> checkmark.update()
+    == Ok(Nil)
+
+  let assert Ok(written) = process.receive(self, 0)
+  let assert Ok(expected) = simplifile.read("./test/expected_updated.gleam.txt")
   assert written == expected
 }
