@@ -20,6 +20,10 @@ pub opaque type Checker(e) {
   )
 }
 
+type Expectation {
+  ContentsOfFile(tag: String, filename: String)
+}
+
 /// A markdown file to check, which can be linked to snippets in multiple other files.
 /// The error type depends on the IO library used.
 pub opaque type File(e) {
@@ -27,7 +31,7 @@ pub opaque type File(e) {
     name: String,
     checker: Checker(e),
     check_in_comments: Bool,
-    expectations: List(#(String, String)),
+    expectations: List(Expectation),
   )
 }
 
@@ -73,10 +77,13 @@ pub fn comments_in(checker: Checker(e), filename: String) -> File(e) {
 /// this function only adds to the configuration.
 pub fn should_contain_contents_of(
   file: File(e),
-  source: String,
+  filename: String,
   tagged tag: String,
 ) -> File(e) {
-  File(..file, expectations: [#(source, tag), ..file.expectations])
+  File(..file, expectations: [
+    ContentsOfFile(tag:, filename:),
+    ..file.expectations
+  ])
 }
 
 /// Convenience function for either checking or updating depending on a boolean.
@@ -90,13 +97,14 @@ pub fn check_or_update(
   }
 }
 
-/// Checks that the markdown file contains code blocks that match the content of the specified files.
+/// Checks that the markdown or Gleam source code file 
+/// contains code blocks that match the content as specified.
 pub fn check(file: File(e)) -> Result(Nil, List(CheckError(e))) {
   use contents <- result.try(parse_file(file))
   let results = {
-    use #(filename, tag) <- list.map(file.expectations)
-    use expected <- result.try(read_lines(file.checker, filename))
-    check_one(contents, expected, tag)
+    use expectation <- list.map(file.expectations)
+    use lines <- result.try(get_expected_lines(file.checker, expectation))
+    check_one(contents, lines, expectation.tag)
   }
 
   let #(_, errors) = result.partition(results)
@@ -111,10 +119,9 @@ pub fn check(file: File(e)) -> Result(Nil, List(CheckError(e))) {
 pub fn update(file: File(e)) -> Result(Nil, List(CheckError(e))) {
   use contents <- result.try(parse_file(file))
   let results = {
-    use #(filename, tag) <- list.map(file.expectations)
-    use _ <- result.try(find_match(contents, tag, []))
-    use expected <- result.try(read_lines(file.checker, filename))
-    Ok(#(tag, expected))
+    use expectation <- list.map(file.expectations)
+    use lines <- result.try(get_expected_lines(file.checker, expectation))
+    Ok(#(expectation.tag, lines))
   }
 
   let #(replacements, errors) = result.partition(results)
@@ -126,6 +133,15 @@ pub fn update(file: File(e)) -> Result(Nil, List(CheckError(e))) {
       |> result.map_error(fn(e) { [CouldNotWriteFile(e)] })
     }
     _ -> Error(errors)
+  }
+}
+
+fn get_expected_lines(
+  checker: Checker(e),
+  expectation: Expectation,
+) -> Result(List(String), CheckError(e)) {
+  case expectation {
+    ContentsOfFile(filename:, ..) -> read_lines(checker, filename)
   }
 }
 
