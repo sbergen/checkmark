@@ -180,7 +180,7 @@ fn parse_file(
 ) -> Result(List(parser.Section), List(CheckError(e))) {
   read_file(file.checker, file.name)
   |> result.map_error(list.wrap)
-  |> result.map(parser.parse)
+  |> result.map(parser.parse(_, False))
 }
 
 fn read_file(

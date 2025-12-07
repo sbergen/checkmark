@@ -23,7 +23,7 @@ type SectionBuilder {
   FencedCodeBuilder(start_line: Int, parts: List(String), start_fence: Fence)
 }
 
-pub fn parse(content: String) -> List(Section) {
+pub fn parse(content: String, in_comments: Bool) -> List(Section) {
   use <- bool.guard(when: content == "", return: [])
 
   let line_ends = splitter.new(["\n", "\r\n"])
