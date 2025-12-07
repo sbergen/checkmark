@@ -1,6 +1,8 @@
-//// Link code in files with code blocks in markdown,
+//// Link code in files with code blocks in markdown or comments,
 //// and check that they are up to date, or update them automatically.
 
+import checkmark/internal/code_extractor
+import checkmark/internal/lines.{to_lines}
 import checkmark/internal/parser.{type Fence}
 import gleam/dict.{type Dict}
 import gleam/list
@@ -19,15 +21,20 @@ pub opaque type Checker(e) {
   )
 }
 
-/// A markdown file to check, which can be linked to snippets in multiple other files.
+/// A markdown or source file to check, which can be linked to snippets in multiple other files.
 /// The error type depends on the IO library used.
 pub opaque type File(e) {
   File(
     name: String,
     checker: Checker(e),
     check_in_comments: Bool,
-    expectations: List(#(String, String)),
+    expectations: List(Expectation),
   )
+}
+
+/// A gleam source file, from which snippets can be loaded.
+pub opaque type CodeSnippetSource {
+  CodeSnippetSource(filename: String, file: code_extractor.File)
 }
 
 /// Any error that can happen during checking or updating a markdown file.
@@ -38,6 +45,24 @@ pub type CheckError(e) {
   TagNotFound(tag: String)
   MultipleTagsFound(tag: String, lines: List(Int))
   ContentDidNotMatch(tag: String)
+  FailedToLoadCodeSegment(file: String, reason: String)
+  CouldNotParseSnippetSource
+}
+
+type Expectation {
+  ContentsOfFile(tag: String, filename: String)
+  CodeSegment(
+    tag: String,
+    filename: String,
+    file: code_extractor.File,
+    segment: CodeSegment,
+  )
+}
+
+pub type CodeSegment {
+  Function(name: String)
+  FunctionBody(name: String)
+  TypeDefinition(name: String)
 }
 
 /// Builds a new checker with the provided file IO functions.
@@ -64,7 +89,18 @@ pub fn comments_in(checker: Checker(e), filename: String) -> File(e) {
   File(filename, checker, True, [])
 }
 
-/// Specify that the markdown file should contain the contents of another file as a code block.
+/// Loads a gleam source file to extract snippets from.
+pub fn load_snippet_source(
+  checker: Checker(e),
+  filename: String,
+) -> Result(CodeSnippetSource, CheckError(e)) {
+  use content <- result.try(read_file(checker, filename))
+  code_extractor.load(content)
+  |> result.replace_error(CouldNotParseSnippetSource)
+  |> result.map(CodeSnippetSource(filename, _))
+}
+
+/// Specify that the file should contain the contents of another file as a code block.
 /// The tag is what comes after the block fence.
 /// e.g. "```gleam 1" would match the tag "gleam 1".
 /// Whitespace is trimmed off the tag.
@@ -72,10 +108,31 @@ pub fn comments_in(checker: Checker(e), filename: String) -> File(e) {
 /// this function only adds to the configuration.
 pub fn should_contain_contents_of(
   file: File(e),
-  source: String,
+  filename: String,
   tagged tag: String,
 ) -> File(e) {
-  File(..file, expectations: [#(source, tag), ..file.expectations])
+  File(..file, expectations: [
+    ContentsOfFile(tag:, filename:),
+    ..file.expectations
+  ])
+}
+
+/// Specify that the file should contain a code snippet from a Gleam source file.
+/// The tag is what comes after the block fence and `gleam`.
+/// e.g. "```gleam 1" would match the tag "1".
+/// Whitespace is trimmed off the tag.
+/// Note that you still need to call `check`, `update` or `check_or_update` after this,
+/// this function only adds to the configuration.
+pub fn should_contain_snippet_from(
+  file: File(e),
+  source: CodeSnippetSource,
+  segment: CodeSegment,
+  tagged tag: String,
+) -> File(e) {
+  File(..file, expectations: [
+    CodeSegment("gleam " <> tag, source.filename, source.file, segment),
+    ..file.expectations
+  ])
 }
 
 /// Convenience function for either checking or updating depending on a boolean.
@@ -89,13 +146,14 @@ pub fn check_or_update(
   }
 }
 
-/// Checks that the markdown file contains code blocks that match the content of the specified files.
+/// Checks that the markdown or Gleam source code file 
+/// contains code blocks that match the content as specified.
 pub fn check(file: File(e)) -> Result(Nil, List(CheckError(e))) {
   use contents <- result.try(parse_file(file))
   let results = {
-    use #(filename, tag) <- list.map(file.expectations)
-    use expected <- result.try(read_file(file.checker, filename))
-    check_one(contents, expected, tag)
+    use expectation <- list.map(file.expectations)
+    use lines <- result.try(get_expected_lines(file.checker, expectation))
+    check_one(contents, lines, expectation.tag)
   }
 
   let #(_, errors) = result.partition(results)
@@ -106,14 +164,13 @@ pub fn check(file: File(e)) -> Result(Nil, List(CheckError(e))) {
   }
 }
 
-/// Updates the code blocks in the markdown file from the specified files.
+/// Updates the code blocks in the markdown file or Gleam source file from the specified files.
 pub fn update(file: File(e)) -> Result(Nil, List(CheckError(e))) {
   use contents <- result.try(parse_file(file))
   let results = {
-    use #(filename, tag) <- list.map(file.expectations)
-    use _ <- result.try(find_match(contents, tag, []))
-    use expected <- result.try(read_file(file.checker, filename))
-    Ok(#(tag, expected))
+    use expectation <- list.map(file.expectations)
+    use lines <- result.try(get_expected_lines(file.checker, expectation))
+    Ok(#(expectation.tag, lines))
   }
 
   let #(replacements, errors) = result.partition(results)
@@ -125,6 +182,30 @@ pub fn update(file: File(e)) -> Result(Nil, List(CheckError(e))) {
       |> result.map_error(fn(e) { [CouldNotWriteFile(e)] })
     }
     _ -> Error(errors)
+  }
+}
+
+fn get_expected_lines(
+  checker: Checker(e),
+  expectation: Expectation,
+) -> Result(List(String), CheckError(e)) {
+  case expectation {
+    ContentsOfFile(filename:, ..) -> read_lines(checker, filename)
+    CodeSegment(file:, segment:, ..) -> {
+      case segment {
+        Function(name:) -> code_extractor.extract_function(file, name)
+        FunctionBody(name:) -> code_extractor.extract_function_body(file, name)
+        TypeDefinition(name:) -> code_extractor.extract_type(file, name)
+      }
+      |> result.map_error(fn(e) {
+        let reason = case e {
+          code_extractor.NameNotFound(name:) -> "Could not find " <> name
+          code_extractor.SpanExtractionFailed ->
+            "Extracting snippet failed, please report a bug!"
+        }
+        FailedToLoadCodeSegment(file: expectation.filename, reason:)
+      })
+    }
   }
 }
 
@@ -185,7 +266,7 @@ fn render_fence(prefix: String, fence: Fence) -> String {
 fn parse_file(
   file: File(e),
 ) -> Result(List(parser.Section), List(CheckError(e))) {
-  read_file(file.checker, file.name)
+  read_lines(file.checker, file.name)
   |> result.map_error(list.wrap)
   |> result.map(parser.parse(_, file.check_in_comments))
 }
@@ -193,26 +274,17 @@ fn parse_file(
 fn read_file(
   checker: Checker(e),
   filename: String,
-) -> Result(List(String), CheckError(e)) {
-  use content <- result.map(
-    checker.read(filename)
-    |> result.map_error(CouldNotReadFile),
-  )
-
-  splitter.new(["\n", "\r\n"]) |> to_lines(content, [])
+) -> Result(String, CheckError(e)) {
+  checker.read(filename)
+  |> result.map_error(CouldNotReadFile)
 }
 
-fn to_lines(
-  splitter: splitter.Splitter,
-  content: String,
-  lines: List(String),
-) -> List(String) {
-  let #(line, rest) = splitter.split_after(splitter, content)
-  let lines = [line, ..lines]
-  case rest {
-    "" -> list.reverse(lines)
-    _ -> to_lines(splitter, rest, lines)
-  }
+fn read_lines(
+  checker: Checker(e),
+  filename: String,
+) -> Result(List(String), CheckError(e)) {
+  use content <- result.map(read_file(checker, filename))
+  splitter.new(["\n", "\r\n"]) |> to_lines(content, [])
 }
 
 fn check_one(

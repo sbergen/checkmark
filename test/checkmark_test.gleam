@@ -41,6 +41,12 @@ pub fn check_missing_source_file_test() {
     == Error([CouldNotReadFile(simplifile.Enoent)])
 }
 
+pub fn invalid_snippet_source_test() {
+  assert checkmark.new(simplifile.read, simplifile.write)
+    |> checkmark.load_snippet_source("./test/test.md")
+    == Error(checkmark.CouldNotParseSnippetSource)
+}
+
 pub fn update_markdown_test() {
   use checker <- update_test("./test/expected_updated.md")
 
@@ -62,6 +68,31 @@ pub fn update_code_test() {
   |> checkmark.should_contain_contents_of(
     "./test/test_content.txt",
     "gleam value",
+  )
+  |> checkmark.update()
+}
+
+pub fn update_from_snippets_test() {
+  use checker <- update_test("./test/expected_snippets.md")
+  let assert Ok(snippets) =
+    checkmark.load_snippet_source(checker, "./test/snippet_source.gleam.txt")
+
+  checker
+  |> checkmark.document("./test/snippets.md")
+  |> checkmark.should_contain_snippet_from(
+    snippets,
+    checkmark.Function("main"),
+    "function",
+  )
+  |> checkmark.should_contain_snippet_from(
+    snippets,
+    checkmark.FunctionBody("main"),
+    "function body",
+  )
+  |> checkmark.should_contain_snippet_from(
+    snippets,
+    checkmark.TypeDefinition("Wibble"),
+    "type",
   )
   |> checkmark.update()
 }
