@@ -9,7 +9,7 @@ pub fn main() {
 
 pub fn check_existing_file_test() {
   assert checkmark.new(simplifile.read, simplifile.write)
-    |> checkmark.file("./test/test.md")
+    |> checkmark.document("./test/test.md")
     |> checkmark.should_contain_contents_of(
       "./test/test_content.txt",
       tagged: "multiple",
@@ -28,14 +28,14 @@ pub fn check_existing_file_test() {
 
 pub fn check_missing_markdown_file_test() {
   assert checkmark.new(simplifile.read, simplifile.write)
-    |> checkmark.file("this-file-does-not-exist")
+    |> checkmark.document("this-file-does-not-exist")
     |> checkmark.check()
     == Error([CouldNotReadFile(simplifile.Enoent)])
 }
 
 pub fn check_missing_source_file_test() {
   assert checkmark.new(simplifile.read, simplifile.write)
-    |> checkmark.file("./test/test.md")
+    |> checkmark.document("./test/test.md")
     |> checkmark.should_contain_contents_of("this-file-does-not-exist", "")
     |> checkmark.check()
     == Error([CouldNotReadFile(simplifile.Enoent)])
@@ -49,7 +49,7 @@ pub fn update_test() {
   }
 
   assert checkmark.new(simplifile.read, write)
-    |> checkmark.file("./test/update.md")
+    |> checkmark.document("./test/update.md")
     |> checkmark.should_contain_contents_of("./test/test_content.txt", "update")
     |> checkmark.update()
     == Ok(Nil)

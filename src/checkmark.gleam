@@ -44,7 +44,13 @@ pub fn new(
 }
 
 /// Configures a markdown file to be checked or updated.
+@deprecated("Use document instead")
 pub fn file(checker: Checker(e), filename: String) -> File(e) {
+  document(checker, filename)
+}
+
+/// Configures a markdown document to be checked or updated.
+pub fn document(checker: Checker(e), filename: String) -> File(e) {
   File(filename, checker, [])
 }
 
