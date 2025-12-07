@@ -1,4 +1,6 @@
-import checkmark/internal/code_extractor.{type File, extract_function}
+import checkmark/internal/code_extractor.{
+  type File, extract_function, extract_function_body,
+}
 import gleam/string
 
 pub fn extract_function_test() {
@@ -13,13 +15,47 @@ pub fn extract_function_test() {
     ])
 
   assert extract_function(module, "main")
-    == Ok(
-      join([
-        "pub fn main() {",
-        "  Ok(42)",
-        "}",
-      ]),
-    )
+    == Ok([
+      "pub fn main() {\n",
+      "  Ok(42)\n",
+      "}\n",
+    ])
+}
+
+pub fn extract_function_body_test() {
+  let module =
+    load_module([
+      "import gleam/result",
+      "",
+      "pub fn main() {",
+      "  case True {",
+      "    True -> False",
+      "    False -> True",
+      "  }",
+      "}",
+      "",
+    ])
+
+  assert extract_function_body(module, "main")
+    == Ok([
+      "case True {\n",
+      "  True -> False\n",
+      "  False -> True\n",
+      "}\n",
+    ])
+}
+
+pub fn extract_function_empty_body_test() {
+  let module =
+    load_module([
+      "import gleam/result",
+      "",
+      "pub fn main() {",
+      "}",
+      "",
+    ])
+
+  assert extract_function_body(module, "main") == Ok([])
 }
 
 fn join(lines: List(String)) -> String {

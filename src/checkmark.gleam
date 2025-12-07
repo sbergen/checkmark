@@ -1,6 +1,7 @@
 //// Link code in files with code blocks in markdown,
 //// and check that they are up to date, or update them automatically.
 
+import checkmark/internal/lines.{to_lines}
 import checkmark/internal/parser.{type Fence}
 import gleam/dict.{type Dict}
 import gleam/list
@@ -204,19 +205,6 @@ fn read_lines(
 ) -> Result(List(String), CheckError(e)) {
   use content <- result.map(read_file(checker, filename))
   splitter.new(["\n", "\r\n"]) |> to_lines(content, [])
-}
-
-fn to_lines(
-  splitter: splitter.Splitter,
-  content: String,
-  lines: List(String),
-) -> List(String) {
-  let #(line, rest) = splitter.split_after(splitter, content)
-  let lines = [line, ..lines]
-  case rest {
-    "" -> list.reverse(lines)
-    _ -> to_lines(splitter, rest, lines)
-  }
 }
 
 fn check_one(
