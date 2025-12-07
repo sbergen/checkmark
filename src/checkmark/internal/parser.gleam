@@ -5,9 +5,9 @@ import gleam/string
 import splitter.{type Splitter}
 
 pub type Section {
-  Other(start_line: Int, content: String)
+  Other(line_number: Int, content: String)
   FencedCode(
-    start_line: Int,
+    line_number: Int,
     prefix: String,
     content: String,
     start_fence: Fence,
@@ -20,9 +20,9 @@ pub type Fence {
 }
 
 type SectionBuilder {
-  OtherBuilder(start_line: Int, parts: List(String))
+  OtherBuilder(line_number: Int, parts: List(String))
   FencedCodeBuilder(
-    start_line: Int,
+    line_number: Int,
     parts: List(String),
     prefix: String,
     start_fence: Fence,
@@ -65,17 +65,17 @@ fn add_parts(builder: SectionBuilder, line: LineContent) {
 
 fn to_section(builder: SectionBuilder, end_fence: Option(Fence)) {
   case builder {
-    FencedCodeBuilder(start_line:, parts:, start_fence:, prefix:) ->
+    FencedCodeBuilder(line_number:, parts:, start_fence:, prefix:) ->
       FencedCode(
-        start_line,
+        line_number,
         parts_to_string(parts, start_fence.indent),
         prefix:,
         start_fence:,
         end_fence:,
       )
 
-    OtherBuilder(start_line:, parts:) ->
-      Other(start_line, parts_to_string(parts, 0))
+    OtherBuilder(line_number:, parts:) ->
+      Other(line_number, parts_to_string(parts, 0))
   }
 }
 

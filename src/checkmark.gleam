@@ -242,12 +242,12 @@ fn find_match(
       }
 
     [
-      parser.FencedCode(start_line:, content:, start_fence:, end_fence:, ..),
+      parser.FencedCode(line_number:, content:, start_fence:, end_fence:, ..),
       ..rest
     ] -> {
       case string.trim(start_fence.info) == tag {
         True -> {
-          let result = #(start_line, Snippet(content, start_fence, end_fence))
+          let result = #(line_number, Snippet(content, start_fence, end_fence))
           find_match(rest, tag, [result, ..found])
         }
         False -> find_match(rest, tag, found)
