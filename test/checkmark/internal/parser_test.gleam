@@ -56,6 +56,43 @@ pub fn basic_snippet_test() {
     ]
 }
 
+pub fn doc_comment_test_does_not_work_yet() {
+  assert parser.parse(
+      lines([
+        "pub const answer = 42",
+        "",
+        "/// start",
+        "/// ```gleam",
+        "/// code\r",
+        "/// more_code",
+        "/// ``` ",
+        "pub const answer_str = \"*\"",
+      ]),
+      True,
+    )
+    == [
+      Other(
+        1,
+        lines([
+          "pub const answer = 42",
+          "",
+          "/// start",
+        ]),
+      ),
+      FencedCode(
+        4,
+        lines([
+          "code\r",
+          "more_code",
+          "",
+        ]),
+        Fence("/// ```", "gleam\n", 0),
+        Some(Fence("/// ```", " \n", 0)),
+      ),
+      Other(6, "rest"),
+    ]
+}
+
 pub fn indented_snippet_test() {
   assert parser.parse(
       lines([
