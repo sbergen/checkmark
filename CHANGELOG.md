@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## v3.0.0 2025-12-07
+
+This is a mostly backwards compatible release,
+as the only breaking change is adding new error variants.
 
 ### Deprecated
 - `file` was deprecated for clarity reasons. Use `document` instead.
@@ -9,6 +12,8 @@
 
 - Adds support for replacing snippets in code comments,
   using `comments_in` instead of `document`.
+- Adds support using functions, function bodies, or type definitions
+  as content to be checked or updated.
 
 ## v2.0.0 - 2025-08-02
 
