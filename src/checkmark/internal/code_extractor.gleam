@@ -8,7 +8,7 @@ import gleam/string
 import splitter.{type Splitter}
 
 pub type ExtractError {
-  FunctionNotFound(name: String)
+  NameNotFound(name: String)
   SpanExtractionFailed
 }
 
@@ -92,7 +92,7 @@ fn find_function(
   file.module.functions
   |> list.map(fn(definition) { definition.definition })
   |> list.find(fn(f) { f.name == name })
-  |> result.replace_error(FunctionNotFound(name))
+  |> result.replace_error(NameNotFound(name))
 }
 
 fn find_type(
@@ -102,7 +102,7 @@ fn find_type(
   file.module.custom_types
   |> list.map(fn(definition) { definition.definition })
   |> list.find(fn(f) { f.name == name })
-  |> result.replace_error(FunctionNotFound(name))
+  |> result.replace_error(NameNotFound(name))
 }
 
 fn extract_source(file: File, span: Span) -> Result(List(String), ExtractError) {
