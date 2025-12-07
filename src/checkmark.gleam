@@ -119,7 +119,7 @@ fn render_replacements(
   contents
   |> list.map(fn(section) {
     case section {
-      parser.FencedCode(_, content, start_fence, end_fence) -> {
+      parser.FencedCode(content:, start_fence:, end_fence:, ..) -> {
         case dict.get(replacements, string.trim(start_fence.info)) {
           Ok(replacement) -> render_code(start_fence, replacement, end_fence)
           Error(_) -> render_code(start_fence, content, end_fence)
@@ -223,10 +223,13 @@ fn find_match(
           ))
       }
 
-    [parser.FencedCode(line, content, start_fence, end_fence), ..rest] -> {
+    [
+      parser.FencedCode(start_line:, content:, start_fence:, end_fence:, ..),
+      ..rest
+    ] -> {
       case string.trim(start_fence.info) == tag {
         True -> {
-          let result = #(line, Snippet(content, start_fence, end_fence))
+          let result = #(start_line, Snippet(content, start_fence, end_fence))
           find_match(rest, tag, [result, ..found])
         }
         False -> find_match(rest, tag, found)
