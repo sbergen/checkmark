@@ -1,5 +1,4 @@
-//// Link code in files with code blocks in markdown or comments,
-//// and check that they are up to date, or update them automatically.
+//// Keep code snippets in markdown up to date.
 
 import checkmark/internal/code_extractor
 import checkmark/internal/lines.{to_lines}
@@ -37,7 +36,7 @@ pub opaque type CodeSnippetSource {
   CodeSnippetSource(filename: String, file: code_extractor.File)
 }
 
-/// Any error that can happen during checking or updating a markdown file.
+/// Any error that can happen during checking or updating markdown.
 /// The error type depends on the IO library used.
 pub type CheckError(e) {
   CouldNotReadFile(error: e)
@@ -101,10 +100,18 @@ pub fn load_snippet_source(
 }
 
 /// Specify that the file should contain the contents of another file as a code block.
-/// The tag is what comes after the block fence.
-/// e.g. "```gleam 1" would match the tag "gleam 1".
-/// Whitespace is trimmed off the tag.
-/// Note that you still need to call `check`, `update` or `check_or_update` after this,
+/// For example
+///
+/// ```gleam contents_of
+/// checker
+/// |> checkmark.document("README.md")
+/// |> checkmark.should_contain_contents_of("./example.sh", tagged: "sh deps")
+/// ```
+///
+/// will replace the code block starting with ```` ```sh deps````
+/// with the contents of `example.sh`.
+/// Whitespace is trimmed off the tag when matching it.
+/// Note that you still need to call `check`, `update` or `check_or_update` after this -
 /// this function only adds to the configuration.
 pub fn should_contain_contents_of(
   file: File(e),
@@ -117,11 +124,23 @@ pub fn should_contain_contents_of(
   ])
 }
 
-/// Specify that the file should contain a code snippet from a Gleam source file.
-/// The tag is what comes after the block fence and `gleam`.
-/// e.g. "```gleam 1" would match the tag "1".
-/// Whitespace is trimmed off the tag.
-/// Note that you still need to call `check`, `update` or `check_or_update` after this,
+/// Specify that the file should contain a code snippet from another file.
+/// For example
+///
+/// ```gleam snippet_from
+/// checker
+/// |> checkmark.document("README.md")
+/// |> checkmark.should_contain_snippet_from(
+///   snippets,
+///   checkmark.Function("wibble"),
+///   tagged: "wibble",
+/// )
+/// ```
+///
+/// will replace the code block starting with ```` ```gleam wibble````
+/// with the full definition of the `wibble` function.
+/// Whitespace is trimmed off the tag when matching it.
+/// Note that you still need to call `check`, `update` or `check_or_update` after this -
 /// this function only adds to the configuration.
 pub fn should_contain_snippet_from(
   file: File(e),
