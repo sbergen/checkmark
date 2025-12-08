@@ -1,5 +1,5 @@
 name = "checkmark"
-version = "3.0.0"
+version = "3.0.1"
 
 description = "Gleam markdown snippet validator"
 licences = ["Apache-2.0"]
