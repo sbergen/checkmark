@@ -9,6 +9,7 @@ pub fn extract_function_test() {
       "import gleam/result",
       "",
       "pub fn main() {",
+      "",
       "  Ok(42)",
       "}",
       "",
@@ -17,6 +18,7 @@ pub fn extract_function_test() {
   assert extract_function(module, "main")
     == Ok([
       "pub fn main() {\n",
+      "\n",
       "  Ok(42)\n",
       "}\n",
     ])
@@ -30,6 +32,8 @@ pub fn extract_function_body_test() {
       "pub fn main() {",
       "  case True {",
       "    True -> False",
+      "// weird indent",
+      "",
       "    False -> True",
       "  }",
       "}",
@@ -40,6 +44,8 @@ pub fn extract_function_body_test() {
     == Ok([
       "case True {\n",
       "  True -> False\n",
+      "// weird indent\n",
+      "\n",
       "  False -> True\n",
       "}\n",
     ])

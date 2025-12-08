@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.0.1 2025-12-08
+
+### Fixed
+- Fixes handling empty lines when using Gleam code snippets.
+
 ## v3.0.0 2025-12-07
 
 This is a mostly backwards compatible release,

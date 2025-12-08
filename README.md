@@ -64,8 +64,10 @@ Update comments in code:
 
 ```gleam comments
 let checker = checkmark.new(simplifile.read, simplifile.write)
+
 let assert Ok(snippets) =
   checkmark.load_snippet_source(checker, "./test/doc_snippets_test.gleam")
+
 assert checker
   |> checkmark.comments_in("./src/checkmark.gleam")
   |> checkmark.should_contain_snippet_from(
