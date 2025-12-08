@@ -17,7 +17,7 @@ A target to check or update can be:
 * A code snippet in a markdown file
 * A markdown code snippet in a Gleam comment
 
-All types of sources and targets can be freely matched.
+All types of sources and targets can be freely mixed and matched.
 
 ## Examples
 
@@ -50,7 +50,7 @@ pub fn example_test() {
     |> checkmark.should_contain_snippet_from(
       snippets,
       checkmark.FunctionBody("update_docs_test"),
-      tagged: "comments",
+      tagged: "update comments",
     )
     // Update locally, check on CI
     |> checkmark.check_or_update(
@@ -62,7 +62,7 @@ pub fn example_test() {
 
 Update comments in code:
 
-```gleam comments
+```gleam update comments
 let checker = checkmark.new(simplifile.read, simplifile.write)
 
 let assert Ok(snippets) =

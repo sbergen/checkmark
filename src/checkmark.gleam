@@ -1,4 +1,4 @@
-//// Keep code snippets in markdown up to date.
+//// Keep code blocks in markdown files or Gleam comments up to date.
 
 import checkmark/internal/code_extractor
 import checkmark/internal/lines.{to_lines}
@@ -11,7 +11,7 @@ import gleam/string
 import splitter
 
 /// Contains the configuration for checking files.
-/// Not tied to a single file, may contain more configuration later.
+/// Not tied to a single file.
 /// The error type depends on the IO library used.
 pub opaque type Checker(e) {
   Checker(
@@ -31,20 +31,27 @@ pub opaque type File(e) {
   )
 }
 
-/// A gleam source file, from which snippets can be loaded.
+/// A Gleam source file, from which snippets can be loaded.
 pub opaque type CodeSnippetSource {
   CodeSnippetSource(filename: String, file: code_extractor.File)
 }
 
-/// Any error that can happen during checking or updating markdown.
+/// Any error that can happen while using `checkmark`.
 /// The error type depends on the IO library used.
 pub type CheckError(e) {
+  /// Could not read a source or target file.
   CouldNotReadFile(error: e)
+  /// While updating, could not write a file.
   CouldNotWriteFile(error: e)
+  /// Could not find a code snippet with the given tag.
   TagNotFound(tag: String)
+  /// Found multiple code blocks with the same tag.
   MultipleTagsFound(tag: String, lines: List(Int))
+  /// While checking, the content didn't match expectations.
   ContentDidNotMatch(tag: String)
+  /// Could not load a code segment from a Gleam source file.
   FailedToLoadCodeSegment(file: String, reason: String)
+  /// Could not parse a Gleam source file as a snippet source.
   CouldNotParseSnippetSource
 }
 
@@ -58,9 +65,14 @@ type Expectation {
   )
 }
 
+/// Specifies a code segment to extract from a Gleam source file.
 pub type CodeSegment {
+  /// The full definition of the function with the given name.
   Function(name: String)
+  /// The body of the function with the given name.
+  /// Content is unindented based on the indentation of the first line.
   FunctionBody(name: String)
+  /// The full type definition of the type with the given name.
   TypeDefinition(name: String)
 }
 
@@ -72,23 +84,29 @@ pub fn new(
   Checker(read_file, write_file)
 }
 
-/// Configures a markdown file to be checked or updated.
 @deprecated("Use document instead")
 pub fn file(checker: Checker(e), filename: String) -> File(e) {
   document(checker, filename)
 }
 
-/// Configures a markdown document to be checked or updated.
+/// Starts configuring a markdown file to be checked or updated.
+/// See [`should_contain_contents_of`](#should_contain_contents_of)
+/// and [`should_contain_snippet_from`](#should_contain_snippet_from)
+/// to configure the content.
 pub fn document(checker: Checker(e), filename: String) -> File(e) {
   File(filename, checker, False, [])
 }
 
-/// Configures comments in a gleam source file to be checked or updated.
+/// Starts configuring code blocks in comments of
+/// a Gleam source file to be checked or updated.
+/// See [`should_contain_contents_of`](#should_contain_contents_of)
+/// and [`should_contain_snippet_from`](#should_contain_snippet_from)
+/// to configure the content.
 pub fn comments_in(checker: Checker(e), filename: String) -> File(e) {
   File(filename, checker, True, [])
 }
 
-/// Loads a gleam source file to extract snippets from.
+/// Loads a Gleam source file to extract snippets from.
 pub fn load_snippet_source(
   checker: Checker(e),
   filename: String,
@@ -165,8 +183,10 @@ pub fn check_or_update(
   }
 }
 
-/// Checks that the markdown or Gleam source code file 
-/// contains code blocks that match the content as specified.
+/// Checks that the target file contain the expected code blocks.
+/// See [`should_contain_contents_of`](#should_contain_contents_of)
+/// and [`should_contain_snippet_from`](#should_contain_snippet_from)
+/// to configure the content.
 pub fn check(file: File(e)) -> Result(Nil, List(CheckError(e))) {
   use contents <- result.try(parse_file(file))
   let results = {
@@ -183,7 +203,10 @@ pub fn check(file: File(e)) -> Result(Nil, List(CheckError(e))) {
   }
 }
 
-/// Updates the code blocks in the markdown file or Gleam source file from the specified files.
+/// Updates the code blocks in the target file.
+/// See [`should_contain_contents_of`](#should_contain_contents_of)
+/// and [`should_contain_snippet_from`](#should_contain_snippet_from)
+/// to configure the content.
 pub fn update(file: File(e)) -> Result(Nil, List(CheckError(e))) {
   use contents <- result.try(parse_file(file))
   let results = {
