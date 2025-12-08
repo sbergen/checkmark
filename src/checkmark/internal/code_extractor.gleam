@@ -4,7 +4,6 @@ import gleam/bit_array
 import gleam/bool
 import gleam/list
 import gleam/result
-import gleam/string
 import splitter.{type Splitter}
 
 pub type ExtractError {
@@ -66,7 +65,14 @@ fn unindent(indented: List(String)) -> List(String) {
     |> result.unwrap(0)
 
   use line <- list.map(indented)
-  string.drop_start(line, indent_amount)
+  remove_space(line, indent_amount)
+}
+
+fn remove_space(string: String, up_to: Int) -> String {
+  case up_to, string {
+    _, " " <> rest if up_to > 0 -> remove_space(rest, up_to - 1)
+    _, _ -> string
+  }
 }
 
 fn indent_amount(string: String, amount: Int) -> Int {
