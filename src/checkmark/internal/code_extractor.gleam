@@ -11,6 +11,13 @@ pub type ExtractError {
   SpanExtractionFailed
 }
 
+pub type CodeSegment {
+  Function(name: String)
+  FunctionBody(name: String)
+  TypeDefinition(name: String)
+  TypeAlias(name: String)
+}
+
 pub opaque type File {
   Source(text: BitArray, module: Module, line_ends: Splitter)
 }
@@ -21,15 +28,31 @@ pub fn load(source: String) -> Result(File, Nil) {
   Source(bit_array.from_string(source), module, line_ends:)
 }
 
-pub fn extract_function(
+pub fn extract(
   file: File,
-  name: String,
+  segment: CodeSegment,
 ) -> Result(List(String), ExtractError) {
-  use function <- result.try(find_function(file, name))
-  extract_source(file, function.location)
+  case segment {
+    Function(name:) -> {
+      use function <- result.try(find_function(file, name))
+      extract_source(file, function.location)
+    }
+
+    TypeAlias(name:) -> {
+      use alias <- result.try(find_type_alias(file, name))
+      extract_source(file, alias.location)
+    }
+
+    TypeDefinition(name:) -> {
+      use function <- result.try(find_type(file, name))
+      extract_source(file, function.location)
+    }
+
+    FunctionBody(name:) -> extract_function_body(file, name)
+  }
 }
 
-pub fn extract_function_body(
+fn extract_function_body(
   file: File,
   name: String,
 ) -> Result(List(String), ExtractError) {
@@ -48,22 +71,6 @@ pub fn extract_function_body(
   })
 
   Ok(unindent(indented))
-}
-
-pub fn extract_type(
-  file: File,
-  name: String,
-) -> Result(List(String), ExtractError) {
-  use function <- result.try(find_type(file, name))
-  extract_source(file, function.location)
-}
-
-pub fn extract_type_alias(
-  file: File,
-  name: String,
-) -> Result(List(String), ExtractError) {
-  use alias <- result.try(find_type_alias(file, name))
-  extract_source(file, alias.location)
 }
 
 fn unindent(indented: List(String)) -> List(String) {

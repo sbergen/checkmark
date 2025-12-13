@@ -65,33 +65,28 @@ type Expectation {
   )
 }
 
-/// Specifies a code segment to extract from a Gleam source file.
-pub opaque type CodeSegment {
-  Function(name: String)
-  FunctionBody(name: String)
-  TypeDefinition(name: String)
-  TypeAlias(name: String)
-}
+type CodeSegment =
+  code_extractor.CodeSegment
 
 /// The full definition of the function with the given name.
 pub fn function(name: String) -> CodeSegment {
-  Function(name)
+  code_extractor.Function(name)
 }
 
 /// The body of the function with the given name.
 /// Content is unindented based on the indentation of the first line.
 pub fn function_body(name: String) -> CodeSegment {
-  FunctionBody(name)
+  code_extractor.FunctionBody(name)
 }
 
 /// The full type definition of the type with the given name.
 pub fn type_definition(name: String) -> CodeSegment {
-  TypeDefinition(name)
+  code_extractor.TypeDefinition(name)
 }
 
 /// A type alias definition
 pub fn type_alias(name: String) -> CodeSegment {
-  TypeAlias(name)
+  code_extractor.TypeAlias(name)
 }
 
 /// Builds a new checker with the provided file IO functions.
@@ -252,12 +247,7 @@ fn get_expected_lines(
   case expectation {
     ContentsOfFile(filename:, ..) -> read_lines(checker, filename)
     CodeSegment(file:, segment:, ..) -> {
-      case segment {
-        Function(name:) -> code_extractor.extract_function(file, name)
-        FunctionBody(name:) -> code_extractor.extract_function_body(file, name)
-        TypeDefinition(name:) -> code_extractor.extract_type(file, name)
-        TypeAlias(name:) -> code_extractor.extract_type_alias(file, name)
-      }
+      code_extractor.extract(file, segment)
       |> result.map_error(fn(e) {
         let reason = case e {
           code_extractor.NameNotFound(name:) -> "Could not find " <> name

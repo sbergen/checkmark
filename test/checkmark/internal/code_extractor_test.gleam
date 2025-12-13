@@ -1,6 +1,5 @@
 import checkmark/internal/code_extractor.{
-  type File, extract_function, extract_function_body, extract_type,
-  extract_type_alias,
+  type File, Function, FunctionBody, TypeAlias, TypeDefinition,
 }
 
 pub fn extract_function_test() {
@@ -15,7 +14,7 @@ pub fn main() {
 ",
     )
 
-  assert extract_function(module, "main")
+  assert code_extractor.extract(module, Function("main"))
     == Ok([
       "pub fn main() {\n",
       "\n",
@@ -40,7 +39,7 @@ pub fn main() {
 ",
     )
 
-  assert extract_function_body(module, "main")
+  assert code_extractor.extract(module, FunctionBody("main"))
     == Ok([
       "case True {\n",
       "  True -> False\n",
@@ -61,7 +60,7 @@ pub fn main() {
 ",
     )
 
-  assert extract_function_body(module, "main") == Ok([])
+  assert code_extractor.extract(module, FunctionBody("main")) == Ok([])
 }
 
 pub fn extract_type_test() {
@@ -76,7 +75,7 @@ type Wibble {
 ",
     )
 
-  assert extract_type(module, "Wibble")
+  assert code_extractor.extract(module, TypeDefinition("Wibble"))
     == Ok([
       "type Wibble {\n",
       "  Wibble\n",
@@ -94,7 +93,8 @@ type Wibble = Wobble
 ",
     )
 
-  assert extract_type_alias(module, "Wibble") == Ok(["type Wibble = Wobble\n"])
+  assert code_extractor.extract(module, TypeAlias("Wibble"))
+    == Ok(["type Wibble = Wobble\n"])
 }
 
 fn load_module(source: String) -> File {
