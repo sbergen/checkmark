@@ -49,7 +49,7 @@ pub fn example_test() {
     )
     |> checkmark.should_contain_snippet_from(
       snippets,
-      checkmark.FunctionBody("update_docs_test"),
+      checkmark.function_body("update_docs_test"),
       tagged: "update comments",
     )
     // Update locally, check on CI
@@ -72,12 +72,12 @@ assert checker
   |> checkmark.comments_in("./src/checkmark.gleam")
   |> checkmark.should_contain_snippet_from(
     snippets,
-    checkmark.FunctionBody("contents_of_example"),
+    checkmark.function_body("contents_of_example"),
     tagged: "contents_of",
   )
   |> checkmark.should_contain_snippet_from(
     snippets,
-    checkmark.FunctionBody("snippet_from_example"),
+    checkmark.function_body("snippet_from_example"),
     tagged: "snippet_from",
   )
   // Update locally, check on CI

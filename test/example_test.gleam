@@ -17,7 +17,7 @@ pub fn example_test() {
     )
     |> checkmark.should_contain_snippet_from(
       snippets,
-      checkmark.FunctionBody("update_docs_test"),
+      checkmark.function_body("update_docs_test"),
       tagged: "update comments",
     )
     // Update locally, check on CI

@@ -81,18 +81,23 @@ pub fn update_from_snippets_test() {
   |> checkmark.document("./test/snippets.md")
   |> checkmark.should_contain_snippet_from(
     snippets,
-    checkmark.Function("main"),
+    checkmark.function("main"),
     "function",
   )
   |> checkmark.should_contain_snippet_from(
     snippets,
-    checkmark.FunctionBody("main"),
+    checkmark.function_body("main"),
     "function body",
   )
   |> checkmark.should_contain_snippet_from(
     snippets,
-    checkmark.TypeDefinition("Wibble"),
+    checkmark.type_definition("Wibble"),
     "type",
+  )
+  |> checkmark.should_contain_snippet_from(
+    snippets,
+    checkmark.type_alias("Wobble"),
+    "type alias",
   )
   |> checkmark.update()
 }

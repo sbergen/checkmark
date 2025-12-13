@@ -1,19 +1,19 @@
 import checkmark/internal/code_extractor.{
   type File, extract_function, extract_function_body, extract_type,
+  extract_type_alias,
 }
-import gleam/string
 
 pub fn extract_function_test() {
   let module =
-    load_module([
-      "import gleam/result",
-      "",
-      "pub fn main() {",
-      "",
-      "  Ok(42)",
-      "}",
-      "",
-    ])
+    load_module(
+      "import gleam/result
+
+pub fn main() {
+
+  Ok(42)
+}
+",
+    )
 
   assert extract_function(module, "main")
     == Ok([
@@ -26,19 +26,19 @@ pub fn extract_function_test() {
 
 pub fn extract_function_body_test() {
   let module =
-    load_module([
-      "import gleam/result",
-      "",
-      "pub fn main() {",
-      "  case True {",
-      "    True -> False",
-      "// weird indent",
-      "",
-      "    False -> True",
-      "  }",
-      "}",
-      "",
-    ])
+    load_module(
+      "import gleam/result
+
+pub fn main() {
+  case True {
+    True -> False
+// weird indent
+
+    False -> True
+  }
+}
+",
+    )
 
   assert extract_function_body(module, "main")
     == Ok([
@@ -53,28 +53,28 @@ pub fn extract_function_body_test() {
 
 pub fn extract_function_empty_body_test() {
   let module =
-    load_module([
-      "import gleam/result",
-      "",
-      "pub fn main() {",
-      "}",
-      "",
-    ])
+    load_module(
+      "import gleam/result
+
+pub fn main() {
+}
+",
+    )
 
   assert extract_function_body(module, "main") == Ok([])
 }
 
 pub fn extract_type_test() {
   let module =
-    load_module([
-      "import gleam/result",
-      "",
-      "type Wibble {",
-      "  Wibble",
-      "  Wobble",
-      "}",
-      "",
-    ])
+    load_module(
+      "import gleam/result
+
+type Wibble {
+  Wibble
+  Wobble
+}
+",
+    )
 
   assert extract_type(module, "Wibble")
     == Ok([
@@ -85,11 +85,19 @@ pub fn extract_type_test() {
     ])
 }
 
-fn join(lines: List(String)) -> String {
-  string.join(lines, "\n")
+pub fn extract_type_alias_test() {
+  let module =
+    load_module(
+      "import gleam/result
+
+type Wibble = Wobble
+",
+    )
+
+  assert extract_type_alias(module, "Wibble") == Ok(["type Wibble = Wobble\n"])
 }
 
-fn load_module(lines: List(String)) -> File {
-  let assert Ok(file) = code_extractor.load(join(lines))
+fn load_module(source: String) -> File {
+  let assert Ok(file) = code_extractor.load(source)
   file
 }

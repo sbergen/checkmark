@@ -14,3 +14,7 @@ pub type Wibble {
   Wobble
 }
 ```
+
+```gleam type alias
+type Wobble = Wibble
+```

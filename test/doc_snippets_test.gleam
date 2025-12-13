@@ -12,12 +12,12 @@ pub fn update_docs_test() {
     |> checkmark.comments_in("./src/checkmark.gleam")
     |> checkmark.should_contain_snippet_from(
       snippets,
-      checkmark.FunctionBody("contents_of_example"),
+      checkmark.function_body("contents_of_example"),
       tagged: "contents_of",
     )
     |> checkmark.should_contain_snippet_from(
       snippets,
-      checkmark.FunctionBody("snippet_from_example"),
+      checkmark.function_body("snippet_from_example"),
       tagged: "snippet_from",
     )
     // Update locally, check on CI
@@ -41,7 +41,7 @@ pub fn snippet_from_example(
   |> checkmark.document("README.md")
   |> checkmark.should_contain_snippet_from(
     snippets,
-    checkmark.Function("wibble"),
+    checkmark.function("wibble"),
     tagged: "wibble",
   )
 }

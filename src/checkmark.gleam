@@ -66,14 +66,32 @@ type Expectation {
 }
 
 /// Specifies a code segment to extract from a Gleam source file.
-pub type CodeSegment {
-  /// The full definition of the function with the given name.
+pub opaque type CodeSegment {
   Function(name: String)
-  /// The body of the function with the given name.
-  /// Content is unindented based on the indentation of the first line.
   FunctionBody(name: String)
-  /// The full type definition of the type with the given name.
   TypeDefinition(name: String)
+  TypeAlias(name: String)
+}
+
+/// The full definition of the function with the given name.
+pub fn function(name: String) -> CodeSegment {
+  Function(name)
+}
+
+/// The body of the function with the given name.
+/// Content is unindented based on the indentation of the first line.
+pub fn function_body(name: String) -> CodeSegment {
+  FunctionBody(name)
+}
+
+/// The full type definition of the type with the given name.
+pub fn type_definition(name: String) -> CodeSegment {
+  TypeDefinition(name)
+}
+
+/// A type alias definition
+pub fn type_alias(name: String) -> CodeSegment {
+  TypeAlias(name)
 }
 
 /// Builds a new checker with the provided file IO functions.
@@ -150,7 +168,7 @@ pub fn should_contain_contents_of(
 /// |> checkmark.document("README.md")
 /// |> checkmark.should_contain_snippet_from(
 ///   snippets,
-///   checkmark.Function("wibble"),
+///   checkmark.function("wibble"),
 ///   tagged: "wibble",
 /// )
 /// ```
@@ -238,6 +256,7 @@ fn get_expected_lines(
         Function(name:) -> code_extractor.extract_function(file, name)
         FunctionBody(name:) -> code_extractor.extract_function_body(file, name)
         TypeDefinition(name:) -> code_extractor.extract_type(file, name)
+        TypeAlias(name:) -> code_extractor.extract_type_alias(file, name)
       }
       |> result.map_error(fn(e) {
         let reason = case e {

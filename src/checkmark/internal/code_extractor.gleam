@@ -58,6 +58,14 @@ pub fn extract_type(
   extract_source(file, function.location)
 }
 
+pub fn extract_type_alias(
+  file: File,
+  name: String,
+) -> Result(List(String), ExtractError) {
+  use alias <- result.try(find_type_alias(file, name))
+  extract_source(file, alias.location)
+}
+
 fn unindent(indented: List(String)) -> List(String) {
   let indent_amount =
     list.first(indented)
@@ -106,6 +114,16 @@ fn find_type(
   name: String,
 ) -> Result(glance.CustomType, ExtractError) {
   file.module.custom_types
+  |> list.map(fn(definition) { definition.definition })
+  |> list.find(fn(f) { f.name == name })
+  |> result.replace_error(NameNotFound(name))
+}
+
+fn find_type_alias(
+  file: File,
+  name: String,
+) -> Result(glance.TypeAlias, ExtractError) {
+  file.module.type_aliases
   |> list.map(fn(definition) { definition.definition })
   |> list.find(fn(f) { f.name == name })
   |> result.replace_error(NameNotFound(name))
