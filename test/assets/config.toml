@@ -1,0 +1,30 @@
+# TODO: reserve options as a top level table
+
+[readme]
+path = "README.md"
+
+[[readme.sources]]
+path = "dev/readme_example.gleam"
+tag = "gleam file"
+
+[[readme.sources]]
+path = "setup.sh"
+tag = "sh file"
+
+[[readme.sources]]
+path = "dev/readme_snippets.gleam"
+snippets = [
+  { tag = "function", function = "my_function" },
+  { tag = "type", type = "MyType" }
+]
+
+[my_module]
+path = "src/my_module.gleam"
+
+[[my_module.sources]]
+path = "dev/my_module_docs.gleam"
+snippets = [
+  { tag = "function body", function_body = "my_function" },
+  { tag = "type alias", type_alias = "MyType" }
+]
+

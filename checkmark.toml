@@ -1,0 +1,26 @@
+# More top-level config could be added later
+
+[readme]
+path = "README.md"
+
+[[readme.sources]]
+path = "dev/readme_example.gleam"
+tag = "file example"
+
+[[readme.sources]]
+path = "dev/readme_snippets.gleam"
+snippets = [
+  { tag = "function example", function = "my_function" },
+  { tag = "type example", type = "MyType" }
+]
+
+[my_module]
+path = "src/my_module.gleam"
+
+[[my_module.sources]]
+path = "dev/my_module_docs.gleam"
+snippets = [
+  { tag = "function example", function = "my_function" },
+  { tag = "type example", type = "MyType" }
+]
+
