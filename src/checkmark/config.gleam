@@ -87,7 +87,7 @@ fn parse_target(
 
   let path = tom.get_string(toml, [name, "path"]) |> map_get_error(context)
 
-  use sources, path <- merge_results2(sources, path)
+  use sources, path <- merge_results(sources, path)
   #(Target(name, path), sources)
 }
 
@@ -103,9 +103,17 @@ fn parse_source(
   let tag = tom.get_string(toml, ["tag"])
 
   let _ = case snippets, tag, path {
+    // Nice error if neither tag nor snippets are specified
+    Ok(None), Error(tom.NotFound(..)), _ ->
+      Error([
+        "'"
+        <> context_to_string(context)
+        <> "' should contain either 'tag' or 'snippets'.",
+      ])
+
     // No snippets, use entire contents of file
     Ok(None), tag, path -> {
-      use tag, path <- merge_results2(tag |> map_get_error(context), path)
+      use tag, path <- merge_results(tag |> map_get_error(context), path)
       [ContentsOfFile(tag, path)]
     }
 
@@ -124,16 +132,25 @@ fn parse_source(
       }
     }
 
+    // Proper code segment specification
     Ok(Some(snippets)), Error(tom.NotFound(..)), Ok(path) ->
       Ok({
         use #(tag, segment) <- list.map(snippets)
         CodeSegment(tag, path, segment)
       })
 
-    _, _, _ ->
+    // If snippets have errors, don't print warning about tag
+    Error(_), _, path ->
       Error(
         list.new()
         |> collect_error(snippets)
+        |> collect_error(path),
+      )
+
+    // Snippets were ok, show other errors
+    Ok(_), _, _ ->
+      Error(
+        list.new()
         |> collect_error(tag |> map_get_error(context))
         |> collect_error(path),
       )
@@ -218,15 +235,15 @@ fn parse_snippet(
         [] ->
           Error([
             "'"
-            <> context_to_prefix(context)
-            <> "' must define only one of 'function', 'function_body', 'type', or 'type_alias'",
+            <> context_to_string(context)
+            <> "' must define exactly one of 'function', 'function_body', 'type', or 'type_alias'",
           ])
         errors -> Error(errors)
       }
     }
   }
 
-  use tag, segment <- merge_results2(tag, segment)
+  use tag, segment <- merge_results(tag, segment)
   #(tag, segment)
 }
 
@@ -257,7 +274,7 @@ fn collect_error(errors: List(e), result: Result(a, List(e))) -> List(e) {
   }
 }
 
-fn merge_results2(
+fn merge_results(
   a: ParseResult(a),
   b: ParseResult(b),
   merge: fn(a, b) -> c,
@@ -284,6 +301,10 @@ fn array_contex(
   Nested(context_to_prefix(context) <> new)
 }
 
+fn context_to_string(context: ErrorContext) -> String {
+  string.drop_end(context_to_prefix(context), 1)
+}
+
 fn context_to_prefix(context: ErrorContext) -> String {
   case context {
     TopLevel -> ""
@@ -306,7 +327,7 @@ fn to_parse_error(error: tom.GetError, context: ErrorContext) -> ParseError {
     case error {
       tom.NotFound(..) -> "Expected " <> path <> " to be specified"
       tom.WrongType(expected:, got:, ..) ->
-        "Expected " <> path <> " to be " <> expected <> " found " <> got
+        "Expected " <> path <> " to be " <> expected <> ", found " <> got
     },
   ]
 }
