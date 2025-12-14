@@ -16,22 +16,28 @@ pub type Target {
   Target(name: String, path: String)
 }
 
-pub type ParseError {
-  // TODO: make this String
-  /// The TOML in the configuration was invalid,
-  /// so it could not be processed further.
-  InvalidToml(tom.ParseError)
+pub type ParseError =
+  List(String)
 
-  /// The configuration was valid TOML, but an invalid checkmark configuration
-  InvalidConfiguration(String)
-}
+pub type ParseResult(a) =
+  Result(a, ParseError)
 
 pub type Config =
   Dict(Target, List(Expectation))
 
-pub fn parse(toml: String) -> Result(Config, List(ParseError)) {
+pub fn parse(toml: String) -> ParseResult(Config) {
   use toml <- result.try(
-    tom.parse(toml) |> result.map_error(fn(e) { [InvalidToml(e)] }),
+    tom.parse(toml)
+    |> result.map_error(fn(e) {
+      let details = case e {
+        tom.KeyAlreadyInUse(key:) ->
+          "Key already in use: " <> string.join(key, ".")
+        tom.Unexpected(got:, expected:) ->
+          "Unexpected character: got: " <> got <> ", expected: " <> expected
+      }
+
+      ["Invalid TOML: " <> details]
+    }),
   )
 
   // Currently all top level keys are targets
@@ -61,7 +67,7 @@ pub fn parse(toml: String) -> Result(Config, List(ParseError)) {
 fn parse_target(
   name: String,
   toml: Dict(String, Toml),
-) -> Result(#(Target, List(Expectation)), List(ParseError)) {
+) -> ParseResult(#(Target, List(Expectation))) {
   let context = TopLevel
 
   let sources_path = [name, "sources"]
@@ -88,7 +94,7 @@ fn parse_target(
 fn parse_source(
   toml: Dict(String, Toml),
   context: ErrorContext,
-) -> Result(List(Expectation), List(ParseError)) {
+) -> ParseResult(List(Expectation)) {
   // Path is always required
   let path = tom.get_string(toml, ["path"]) |> map_get_error(context)
 
@@ -106,12 +112,10 @@ fn parse_source(
     // There are snippets and a tag, this is not allowed!
     Ok(_), Ok(_), path -> {
       let error =
-        InvalidConfiguration(
-          "'"
-          <> context_to_prefix(context)
-          <> "tag'"
-          <> " must not be specified together with 'snippets'",
-        )
+        "'"
+        <> context_to_prefix(context)
+        <> "tag'"
+        <> " must not be specified together with 'snippets'"
 
       // Merge with other errors, if any:
       case path {
@@ -139,7 +143,7 @@ fn parse_source(
 fn parse_snippets(
   toml: Dict(String, Toml),
   context: ErrorContext,
-) -> Result(Option(List(#(String, CodeSegment))), List(ParseError)) {
+) -> ParseResult(Option(List(#(String, CodeSegment)))) {
   let snippets_path = ["snippets"]
 
   let snippets =
@@ -167,7 +171,7 @@ fn parse_snippets(
 fn parse_snippet(
   toml: Dict(String, Toml),
   context: ErrorContext,
-) -> Result(#(String, CodeSegment), List(ParseError)) {
+) -> ParseResult(#(String, CodeSegment)) {
   // tag is required
   let tag = tom.get_string(toml, ["tag"]) |> map_get_error(context)
 
@@ -213,11 +217,9 @@ fn parse_snippet(
       case errors {
         [] ->
           Error([
-            InvalidConfiguration(
-              "'"
-              <> context_to_prefix(context)
-              <> "' must define only one of 'function', 'function_body', 'type', or 'type_alias'",
-            ),
+            "'"
+            <> context_to_prefix(context)
+            <> "' must define only one of 'function', 'function_body', 'type', or 'type_alias'",
           ])
         errors -> Error(errors)
       }
@@ -237,10 +239,10 @@ fn collect_errors(results: List(Result(a, List(e)))) -> Result(List(a), List(e))
 }
 
 fn collect_optional_error(
-  errors: List(ParseError),
+  errors: ParseError,
   context: ErrorContext,
   result: Result(a, tom.GetError),
-) -> List(ParseError) {
+) -> ParseError {
   case result {
     Ok(_) -> errors
     Error(tom.NotFound(..)) -> errors
@@ -256,10 +258,10 @@ fn collect_error(errors: List(e), result: Result(a, List(e))) -> List(e) {
 }
 
 fn merge_results2(
-  a: Result(a, List(e)),
-  b: Result(b, List(e)),
+  a: ParseResult(a),
+  b: ParseResult(b),
   merge: fn(a, b) -> c,
-) -> Result(c, List(e)) {
+) -> ParseResult(c) {
   case a, b {
     Ok(a), Ok(b) -> Ok(merge(a, b))
     Error(e1), Error(e2) -> Error(list.append(e1, e2))
@@ -292,22 +294,19 @@ fn context_to_prefix(context: ErrorContext) -> String {
 fn map_get_error(
   result: Result(a, tom.GetError),
   context: ErrorContext,
-) -> Result(a, List(ParseError)) {
+) -> ParseResult(a) {
   result.map_error(result, to_parse_error(_, context))
 }
 
-fn to_parse_error(
-  error: tom.GetError,
-  context: ErrorContext,
-) -> List(ParseError) {
+fn to_parse_error(error: tom.GetError, context: ErrorContext) -> ParseError {
   let path =
     "'" <> context_to_prefix(context) <> string.join(error.key, ".") <> "'"
 
   [
-    InvalidConfiguration(case error {
+    case error {
       tom.NotFound(..) -> "Expected " <> path <> " to be specified"
       tom.WrongType(expected:, got:, ..) ->
         "Expected " <> path <> " to be " <> expected <> " found " <> got
-    }),
+    },
   ]
 }

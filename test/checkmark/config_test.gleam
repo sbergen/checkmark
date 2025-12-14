@@ -41,4 +41,12 @@ pub fn valid_config_test() {
 
   assert config == expected
 }
+
+pub fn missing_target_keys_test() {
+  assert config.parse("[document]\n")
+    == Error([
+      "Expected 'document.sources' to be specified",
+      "Expected 'document.path' to be specified",
+    ])
+}
 // TODO: reserve options as a top level table
