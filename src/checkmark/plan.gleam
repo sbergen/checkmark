@@ -1,6 +1,6 @@
 //// TODO: docs
 
-import checkmark/config
+import checkmark/internal/config
 import gleam/dict
 import gleam/list
 import gleam/set.{type Set}

@@ -1,7 +1,7 @@
-import checkmark/config.{CodeSegment, ContentsOfFile, Target}
 import checkmark/internal/code_extractor.{
   Function, FunctionBody, TypeAlias, TypeDefinition,
 }
+import checkmark/internal/config.{CodeSegment, ContentsOfFile, Target}
 import gleam/dict
 import simplifile
 
