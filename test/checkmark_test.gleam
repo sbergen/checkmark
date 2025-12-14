@@ -9,17 +9,17 @@ pub fn main() {
 
 pub fn check_existing_file_test() {
   assert checkmark.new(simplifile.read, simplifile.write)
-    |> checkmark.document("./test/test.md")
+    |> checkmark.document("./test/assets/test.md")
     |> checkmark.should_contain_contents_of(
-      "./test/test_content.txt",
+      "./test/assets/test_content.txt",
       tagged: "multiple",
     )
     |> checkmark.should_contain_contents_of(
-      "./test/test_content.txt",
+      "./test/assets/test_content.txt",
       tagged: "single",
     )
     |> checkmark.should_contain_contents_of(
-      "./test/test_content.txt",
+      "./test/assets/test_content.txt",
       tagged: "not_present",
     )
     |> checkmark.check()
@@ -35,7 +35,7 @@ pub fn check_missing_markdown_file_test() {
 
 pub fn check_missing_source_file_test() {
   assert checkmark.new(simplifile.read, simplifile.write)
-    |> checkmark.document("./test/test.md")
+    |> checkmark.document("./test/assets/test.md")
     |> checkmark.should_contain_contents_of("this-file-does-not-exist", "")
     |> checkmark.check()
     == Error([CouldNotReadFile(simplifile.Enoent)])
@@ -43,42 +43,48 @@ pub fn check_missing_source_file_test() {
 
 pub fn invalid_snippet_source_test() {
   assert checkmark.new(simplifile.read, simplifile.write)
-    |> checkmark.load_snippet_source("./test/test.md")
+    |> checkmark.load_snippet_source("./test/assets/test.md")
     == Error(checkmark.CouldNotParseSnippetSource)
 }
 
 pub fn update_markdown_test() {
-  use checker <- update_test("./test/expected_updated.md")
+  use checker <- update_test("./test/assets/expected_updated.md")
 
   checker
-  |> checkmark.document("./test/update.md")
-  |> checkmark.should_contain_contents_of("./test/test_content.txt", "update")
+  |> checkmark.document("./test/assets/update.md")
+  |> checkmark.should_contain_contents_of(
+    "./test/assets/test_content.txt",
+    "update",
+  )
   |> checkmark.update()
 }
 
 pub fn update_code_test() {
-  use checker <- update_test("./test/expected_updated.gleam.txt")
+  use checker <- update_test("./test/assets/expected_updated.gleam.txt")
 
   checker
-  |> checkmark.comments_in("./test/test.gleam.txt")
+  |> checkmark.comments_in("./test/assets/test.gleam.txt")
   |> checkmark.should_contain_contents_of(
-    "./test/test_content.txt",
+    "./test/assets/test_content.txt",
     "gleam module",
   )
   |> checkmark.should_contain_contents_of(
-    "./test/test_content.txt",
+    "./test/assets/test_content.txt",
     "gleam value",
   )
   |> checkmark.update()
 }
 
 pub fn update_from_snippets_test() {
-  use checker <- update_test("./test/expected_snippets.md")
+  use checker <- update_test("./test/assets/expected_snippets.md")
   let assert Ok(snippets) =
-    checkmark.load_snippet_source(checker, "./test/snippet_source.gleam.txt")
+    checkmark.load_snippet_source(
+      checker,
+      "./test/assets/snippet_source.gleam.txt",
+    )
 
   checker
-  |> checkmark.document("./test/snippets.md")
+  |> checkmark.document("./test/assets/snippets.md")
   |> checkmark.should_contain_snippet_from(
     snippets,
     checkmark.function("main"),
