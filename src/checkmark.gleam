@@ -1,6 +1,6 @@
 //// Keep code blocks in markdown files or Gleam comments up to date.
 
-import checkmark/internal/code_extractor.{type ExtractError}
+import checkmark/internal/code_extractor
 import checkmark/internal/config.{type Config, type Expectation}
 import checkmark/internal/lines
 import checkmark/internal/parser
@@ -29,29 +29,26 @@ pub fn parse_configuration(
   |> result.map(Configuration)
 }
 
-/// Any error that can happen while using `checkmark`.
-/// The error type depends on the IO library used.
-pub type CheckError {
-  /// Could not read a source or target file.
-  CouldNotReadFile(error: simplifile.FileError)
-  /// While updating, could not write a file.
-  CouldNotWriteFile(error: simplifile.FileError)
-  /// Could not find a code snippet with the given tag.
+pub type CheckErrors {
+  CheckErrors(
+    file_errors: List(#(String, simplifile.FileError)),
+    content_errors: List(ContentError),
+  )
+}
+
+/// An error indicating that the content in the files or in the configuration
+/// did not match the criteria for resolving what is expected or should be replaced.
+pub type ContentError {
+  /// Could not find a code block with the given tag.
   TagNotFound(filename: String, tag: String)
   /// Found multiple code blocks with the same tag.
   MultipleTagsFound(filename: String, tag: String, lines: List(Int))
-  /// While checking, the content didn't match expectations.
-  ContentDidNotMatch(tag: String)
   /// Could not parse a Gleam source file as a snippet source.
   CouldNotParseSnippetSource(file: String)
-
-  // New ones
-  InputNotProvided(filename: String)
-  SnippetNotFound(file: String, name: String)
+  /// The snippet could not be found
+  CouldNotFindSnippet(file: String, name: String)
+  /// The snippet could not be loaded. This is likely an issue in checkmark!
   CouldNotLoadSnippet(file: String, name: String)
-
-  // TODO: Make this better?
-  CodeFileError
 }
 
 type CodeSegment =
@@ -189,7 +186,7 @@ pub fn should_contain_snippet_from(
 pub fn check_or_update(
   configuration: Configuration,
   when should_update: Bool,
-) -> Result(Nil, List(CheckError)) {
+) -> Result(Nil, CheckErrors) {
   case should_update {
     True -> update(configuration)
     False -> check(configuration)
@@ -200,27 +197,26 @@ pub fn check_or_update(
 /// See [`should_contain_contents_of`](#should_contain_contents_of)
 /// and [`should_contain_snippet_from`](#should_contain_snippet_from)
 /// to configure the content.
-pub fn check(configuration: Configuration) -> Result(Nil, List(CheckError)) {
-  let inputs = {
-    use inputs, filename <- set.fold(
+pub fn check(configuration: Configuration) -> Result(Nil, CheckErrors) {
+  let #(inputs, file_errors) = {
+    use #(inputs, errors), filename <- set.fold(
       input_files(configuration.expectations),
-      dict.new(),
+      #(dict.new(), list.new()),
     )
 
-    // TODO handle errors
-    let assert Ok(contents) = simplifile.read(echo filename)
-    dict.insert(inputs, filename, contents)
+    case simplifile.read(filename) {
+      Ok(contents) -> #(dict.insert(inputs, filename, contents), errors)
+      Error(e) -> #(inputs, [#(filename, e), ..errors])
+    }
   }
 
   let #(replacements, errors) =
     get_replacements(configuration.expectations, inputs)
-  case errors, replacements {
+  case file_errors, errors, replacements {
     // TODO: Check that replacement is needed when building them
-    [], [] -> Ok(Nil)
-    [], replacements -> Error(todo)
+    [], [], [] -> Ok(Nil)
 
-    // TODO: also list found replacements as errors
-    errors, _ -> Error(errors)
+    _, _, _ -> Error(CheckErrors(file_errors, errors))
   }
 }
 
@@ -228,7 +224,7 @@ pub fn check(configuration: Configuration) -> Result(Nil, List(CheckError)) {
 /// See [`should_contain_contents_of`](#should_contain_contents_of)
 /// and [`should_contain_snippet_from`](#should_contain_snippet_from)
 /// to configure the content.
-pub fn update(configuration: Configuration) -> Result(Nil, List(CheckError)) {
+pub fn update(configuration: Configuration) -> Result(Nil, CheckErrors) {
   todo
 }
 
@@ -258,8 +254,8 @@ pub fn input_files(config: Config) -> Set(String) {
 pub fn get_replacements(
   config: Config,
   inputs: Dict(String, String),
-) -> #(List(FileReplacements), List(CheckError)) {
-  let #(code_files, errors) = load_snippets(config, inputs)
+) -> #(List(FileReplacements), List(ContentError)) {
+  let #(code_files, errors) = load_code_files(config, inputs)
   let splitter = splitter.new(["\n", "\r\n"])
   let inputs = ReplaceInputs(splitter, inputs, code_files)
 
@@ -268,8 +264,8 @@ pub fn get_replacements(
     [get_file_replacements(inputs, filename, expectations), ..results]
   }
 
-  let #(results, new_errors) = result.partition(results)
-  let errors = list.append(errors, new_errors)
+  // The errors here are missing inputs, so they are ignored
+  let #(results, _) = result.partition(results)
 
   // Fold the inner errors into the outer errors
   {
@@ -292,17 +288,18 @@ type ReplaceInputs {
   )
 }
 
-fn load_snippets(
+/// Loads snippet sources. Ignores missing inputs.
+fn load_code_files(
   config: Config,
   inputs: Dict(String, String),
-) -> #(Dict(String, code_extractor.File), List(CheckError)) {
+) -> #(Dict(String, code_extractor.File), List(ContentError)) {
   use #(code_files, errors), filename <- set.fold(snippet_files(config), #(
     dict.new(),
     list.new(),
   ))
 
   case dict.get(inputs, filename) {
-    Error(Nil) -> #(code_files, [InputNotProvided(filename), ..errors])
+    Error(Nil) -> #(code_files, errors)
     Ok(content) ->
       case code_extractor.load(content) {
         Error(_) -> #(code_files, [
@@ -325,15 +322,15 @@ fn snippet_files(config: Config) -> Set(String) {
 }
 
 // Get replacements for the file.
-// It can either fail entirely, or produce replacements and errors.
+// If the file is not in the inputs, returns an error.
 fn get_file_replacements(
   inputs: ReplaceInputs,
   filename: String,
   expectations: List(Expectation),
-) -> Result(#(FileReplacements, List(CheckError)), CheckError) {
+) -> Result(#(FileReplacements, List(ContentError)), Nil) {
   use content <- result.try(
     dict.get(inputs.input_files, filename)
-    |> result.replace_error(InputNotProvided(filename)),
+    |> result.replace_error(Nil),
   )
   let lines = lines.to_lines(inputs.splitter, content, [])
   let sections = {
@@ -346,6 +343,7 @@ fn get_file_replacements(
     |> list.map(create_replacement(inputs, filename, sections, _))
     |> result.partition
 
+  let errors = option.values(errors)
   Ok(#(FileReplacements(filename, lines, replacements), errors))
 }
 
@@ -354,21 +352,27 @@ fn create_replacement(
   filename: String,
   sections: List(parser.Section),
   expectation: Expectation,
-) -> Result(Replacement, CheckError) {
+) -> Result(Replacement, Option(ContentError)) {
   use lines <- result.try(case expectation {
     config.ContentsOfFile(filename:, ..) ->
       dict.get(inputs.input_files, filename)
-      |> result.replace_error(InputNotProvided(filename))
+      // Missing inputs are not reported ere
+      |> result.replace_error(None)
       |> result.map(lines.to_lines(inputs.splitter, _, []))
 
     config.CodeSegment(filename:, segment:, ..) ->
       dict.get(inputs.code_files, filename)
       // This was either a missing input or parsing failed,
       // we don't know at this point.
-      |> result.replace_error(CodeFileError)
+      |> result.replace_error(None)
       |> result.try(fn(code_file) {
         code_extractor.extract(code_file, segment)
-        |> result.replace_error(CouldNotLoadSnippet(filename, segment.name))
+        |> result.map_error(fn(e) {
+          Some(case e {
+            code_extractor.NameNotFound(..) -> CouldNotFindSnippet
+            code_extractor.SpanExtractionFailed(..) -> CouldNotLoadSnippet
+          }(filename, segment.name))
+        })
       })
   })
 
@@ -391,11 +395,11 @@ fn create_replacement(
       ))
     }
 
-    [] -> Error(TagNotFound(filename, expectation.tag))
+    [] -> Error(Some(TagNotFound(filename, expectation.tag)))
 
     sections -> {
       let lines = list.map(sections, fn(section) { section.line_number })
-      Error(MultipleTagsFound(filename, expectation.tag, lines))
+      Error(Some(MultipleTagsFound(filename, expectation.tag, lines)))
     }
   }
 }

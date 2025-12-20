@@ -1,4 +1,5 @@
-import checkmark.{CouldNotReadFile, MultipleTagsFound, TagNotFound}
+import checkmark.{MultipleTagsFound, TagNotFound}
+
 import gleam/erlang/process
 import gleeunit
 import simplifile
@@ -8,9 +9,10 @@ pub fn main() {
 }
 
 pub fn check_existing_file_test() {
-  assert checkmark.new()
-    |> checkmark.document("test/assets/test.md", fn(document) {
-      document
+  let assert Error(errors) =
+    checkmark.new()
+    |> checkmark.document("test/assets/test.md", fn(doc) {
+      doc
       |> checkmark.should_contain_contents_of(
         "./test/assets/test_content.txt",
         tagged: "multiple",
@@ -25,17 +27,23 @@ pub fn check_existing_file_test() {
       )
     })
     |> checkmark.check()
-    == Error([
+
+  assert errors.file_errors == []
+  assert errors.content_errors
+    == [
       MultipleTagsFound("test/assets/test.md", "multiple", [1, 6]),
       TagNotFound("test/assets/test.md", "not_present"),
-    ])
+    ]
 }
-// pub fn check_missing_markdown_file_test() {
-//   assert checkmark.new(simplifile.read, simplifile.write)
-//     |> checkmark.document("this-file-does-not-exist")
-//     |> checkmark.check()
-//     == Error([CouldNotReadFile(simplifile.Enoent)])
-// }
+
+pub fn check_missing_markdown_file_test() {
+  let assert Error(errors) =
+    checkmark.new()
+    |> checkmark.document("this-file-does-not-exist", fn(doc) { doc })
+    |> checkmark.check()
+  assert errors.file_errors
+    == [#("this-file-does-not-exist", simplifile.Enoent)]
+}
 // 
 // pub fn check_missing_source_file_test() {
 //   assert checkmark.new(simplifile.read, simplifile.write)
