@@ -1,7 +1,7 @@
 import checkmark/internal/code_extractor.{
   Function, FunctionBody, TypeAlias, TypeDefinition,
 }
-import checkmark/internal/config.{CodeSegment, ContentsOfFile, Target}
+import checkmark/internal/config.{CodeSegment, ContentsOfFile}
 import gleam/dict
 import simplifile
 
@@ -11,7 +11,7 @@ pub fn valid_config_test() {
 
   let expected =
     dict.from_list([
-      #(Target("readme", "README.md"), [
+      #("README.md", [
         CodeSegment(
           "type",
           "dev/readme_snippets.gleam",
@@ -25,7 +25,7 @@ pub fn valid_config_test() {
         ContentsOfFile("sh file", "setup.sh"),
         ContentsOfFile("gleam file", "dev/readme_example.gleam"),
       ]),
-      #(Target("my_module", "src/my_module.gleam"), [
+      #("src/my_module.gleam", [
         CodeSegment(
           "type alias",
           "dev/my_module_docs.gleam",

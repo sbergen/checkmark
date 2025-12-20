@@ -12,10 +12,6 @@ pub type Expectation {
   CodeSegment(tag: String, filename: String, segment: CodeSegment)
 }
 
-pub type Target {
-  Target(name: String, path: String)
-}
-
 pub type ParseError =
   List(String)
 
@@ -23,7 +19,7 @@ pub type ParseResult(a) =
   Result(a, ParseError)
 
 pub type Config =
-  Dict(Target, List(Expectation))
+  Dict(String, List(Expectation))
 
 pub fn parse(toml: String) -> ParseResult(Config) {
   use toml <- result.try(
@@ -67,7 +63,7 @@ pub fn parse(toml: String) -> ParseResult(Config) {
 fn parse_target(
   name: String,
   toml: Dict(String, Toml),
-) -> ParseResult(#(Target, List(Expectation))) {
+) -> ParseResult(#(String, List(Expectation))) {
   let context = TopLevel
 
   let sources_path = [name, "sources"]
@@ -88,7 +84,7 @@ fn parse_target(
   let path = tom.get_string(toml, [name, "path"]) |> map_get_error(context)
 
   use sources, path <- merge_results(sources, path)
-  #(Target(name, path), sources)
+  #(path, sources)
 }
 
 fn parse_source(

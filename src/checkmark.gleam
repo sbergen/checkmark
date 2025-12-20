@@ -251,7 +251,7 @@ fn get_expected_lines(
       |> result.map_error(fn(e) {
         let reason = case e {
           code_extractor.NameNotFound(name:) -> "Could not find " <> name
-          code_extractor.SpanExtractionFailed ->
+          code_extractor.SpanExtractionFailed(..) ->
             "Extracting snippet failed, please report a bug!"
         }
         FailedToLoadCodeSegment(file: expectation.filename, reason:)

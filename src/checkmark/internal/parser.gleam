@@ -6,8 +6,8 @@ pub type Section {
   Other(line_number: Int, lines: List(String))
   FencedCode(
     line_number: Int,
-    prefix: String,
     lines: List(String),
+    prefix: String,
     start_fence: Fence,
     end_fence: Option(Fence),
   )

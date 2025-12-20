@@ -8,7 +8,7 @@ import splitter.{type Splitter}
 
 pub type ExtractError {
   NameNotFound(name: String)
-  SpanExtractionFailed
+  SpanExtractionFailed(name: String)
 }
 
 pub type CodeSegment {
@@ -23,6 +23,8 @@ pub opaque type File {
 }
 
 pub fn load(source: String) -> Result(File, Nil) {
+  // glance errors are hard to format,
+  // and errors here aren't really for us to deal with - let the compiler report them.
   use module <- result.map(glance.module(source) |> result.replace_error(Nil))
   let line_ends = splitter.new(["\n", "\r\n"])
   Source(bit_array.from_string(source), module, line_ends:)
@@ -35,17 +37,17 @@ pub fn extract(
   case segment {
     Function(name:) -> {
       use function <- result.try(find_function(file, name))
-      extract_source(file, function.location)
+      extract_source(file, function.location, segment.name)
     }
 
     TypeAlias(name:) -> {
       use alias <- result.try(find_type_alias(file, name))
-      extract_source(file, alias.location)
+      extract_source(file, alias.location, segment.name)
     }
 
     TypeDefinition(name:) -> {
       use function <- result.try(find_type(file, name))
-      extract_source(file, function.location)
+      extract_source(file, function.location, segment.name)
     }
 
     FunctionBody(name:) -> extract_function_body(file, name)
@@ -67,7 +69,7 @@ fn extract_function_body(
   use indented <- result.try(case span {
     // no statements!
     Error(_) -> Ok([])
-    Ok(span) -> extract_source(file, span)
+    Ok(span) -> extract_source(file, span, name)
   })
 
   Ok(unindent(indented))
@@ -136,7 +138,11 @@ fn find_type_alias(
   |> result.replace_error(NameNotFound(name))
 }
 
-fn extract_source(file: File, span: Span) -> Result(List(String), ExtractError) {
+fn extract_source(
+  file: File,
+  span: Span,
+  name: String,
+) -> Result(List(String), ExtractError) {
   let start = include_leading_space(file.text, span.start)
   let end = include_trailing_space(file.text, span.end)
 
@@ -144,7 +150,7 @@ fn extract_source(file: File, span: Span) -> Result(List(String), ExtractError) 
   |> bit_array.slice(start, end - start)
   |> result.try(bit_array.to_string)
   |> result.map(to_lines(file.line_ends, _, []))
-  |> result.replace_error(SpanExtractionFailed)
+  |> result.replace_error(SpanExtractionFailed(name))
 }
 
 fn include_leading_space(bits: BitArray, position: Int) -> Int {

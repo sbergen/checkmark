@@ -38,11 +38,11 @@ pub fn basic_snippet_test() {
       Other(1, ["start\n"]),
       FencedCode(
         2,
-        "",
         [
           "code\r\n",
           "more_code\n",
         ],
+        "",
         Fence("```", "gleam\n", 0),
         Some(Fence("```", " \n", 0)),
       ),
@@ -72,11 +72,11 @@ pub fn doc_comment_test() {
       ]),
       FencedCode(
         4,
-        "/// ",
         [
           "code\r\n",
           "more_code\n",
         ],
+        "/// ",
         Fence("```", "gleam\n", 0),
         Some(Fence("```", " \n", 0)),
       ),
@@ -101,10 +101,10 @@ pub fn module_comment_test() {
       ]),
       FencedCode(
         2,
-        "//// ",
         [
           "code\n",
         ],
+        "//// ",
         Fence("```", "gleam\n", 0),
         Some(Fence("```", " \n", 0)),
       ),
@@ -128,10 +128,10 @@ pub fn unfinished_comment_block_test() {
       ]),
       FencedCode(
         2,
-        "//// ",
         [
           "code\n",
         ],
+        "//// ",
         Fence("```", "gleam\n", 0),
         None,
       ),
@@ -153,12 +153,12 @@ pub fn indented_snippet_test() {
     == [
       FencedCode(
         1,
-        "",
         [
           "code\n",
           "  more_code\n",
           "not indented enough\n",
         ],
+        "",
         Fence("```", "gleam\n", 3),
         Some(Fence("```", "\n", 2)),
       ),
@@ -179,12 +179,12 @@ pub fn non_matching_fences_test() {
     == [
       FencedCode(
         1,
-        "",
         [
           "```\n",
           "~~~\n",
           "code\n",
         ],
+        "",
         Fence("````", "\n", 0),
         Some(Fence("````", "\n", 0)),
       ),
@@ -199,12 +199,12 @@ pub fn missing_end_fence_test() {
       ],
       False,
     )
-    == [FencedCode(1, "", ["code\n"], Fence("```", "\n", 0), None)]
+    == [FencedCode(1, ["code\n"], "", Fence("```", "\n", 0), None)]
 }
 
 pub fn empty_fence_test() {
   assert parser.parse(["```info\n"], False)
-    == [FencedCode(1, "", [], Fence("```", "info\n", 0), None)]
+    == [FencedCode(1, [], "", Fence("```", "info\n", 0), None)]
 }
 
 pub fn emtpy_line_preservation_test() {
@@ -231,12 +231,12 @@ pub fn emtpy_line_preservation_test() {
       ]),
       FencedCode(
         4,
-        "",
         [
           "\n",
           "code\n",
           "\n",
         ],
+        "",
         Fence("```", "\n", 0),
         Some(Fence("```", "\n", 0)),
       ),
