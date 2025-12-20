@@ -1,4 +1,6 @@
-import checkmark.{MultipleTagsFound, TagNotFound}
+import checkmark.{
+  type Configuration, CouldNotParseSnippetSource, MultipleTagsFound, TagNotFound,
+}
 
 import gleam/erlang/process
 import gleeunit
@@ -41,35 +43,55 @@ pub fn check_missing_markdown_file_test() {
     checkmark.new()
     |> checkmark.document("this-file-does-not-exist", fn(doc) { doc })
     |> checkmark.check()
+
   assert errors.file_errors
     == [#("this-file-does-not-exist", simplifile.Enoent)]
 }
-// 
-// pub fn check_missing_source_file_test() {
-//   assert checkmark.new(simplifile.read, simplifile.write)
-//     |> checkmark.document("./test/assets/test.md")
-//     |> checkmark.should_contain_contents_of("this-file-does-not-exist", "")
-//     |> checkmark.check()
-//     == Error([CouldNotReadFile(simplifile.Enoent)])
-// }
-// 
-// pub fn invalid_snippet_source_test() {
-//   assert checkmark.new(simplifile.read, simplifile.write)
-//     |> checkmark.load_snippet_source("./test/assets/test.md")
-//     == Error(checkmark.CouldNotParseSnippetSource)
-// }
-// 
-// pub fn update_markdown_test() {
-//   use checker <- update_test("./test/assets/expected_updated.md")
-// 
-//   checker
-//   |> checkmark.document("./test/assets/update.md")
-//   |> checkmark.should_contain_contents_of(
-//     "./test/assets/test_content.txt",
-//     "update",
-//   )
-//   |> checkmark.update()
-// }
+
+pub fn check_missing_source_file_test() {
+  let assert Error(errors) =
+    checkmark.new()
+    |> checkmark.document("./test/assets/test.md", fn(doc) {
+      doc
+      |> checkmark.should_contain_contents_of("this-file-does-not-exist", "")
+    })
+    |> checkmark.check()
+
+  assert errors.file_errors
+    == [#("this-file-does-not-exist", simplifile.Enoent)]
+}
+
+pub fn invalid_snippet_source_test() {
+  let assert Error(errors) =
+    checkmark.new()
+    |> checkmark.document("./test/assets/test.md", fn(doc) {
+      doc
+      |> checkmark.should_contain_snippet_from(
+        "./test/assets/test.md",
+        checkmark.function("Wibble"),
+        tagged: "wibble",
+      )
+    })
+    |> checkmark.check()
+
+  assert errors.content_errors
+    == [CouldNotParseSnippetSource("./test/assets/test.md")]
+}
+
+pub fn update_markdown_test() {
+  use config <- update_test("./test/assets/expected_updated.md")
+
+  config
+  |> checkmark.document(
+    "./test/assets/update.md",
+    checkmark.should_contain_contents_of(
+      _,
+      "./test/assets/test_content.txt",
+      "update",
+    ),
+  )
+}
+
 // 
 // pub fn update_code_test() {
 //   use checker <- update_test("./test/assets/expected_updated.gleam.txt")
@@ -120,19 +142,23 @@ pub fn check_missing_markdown_file_test() {
 //   |> checkmark.update()
 // }
 // 
-// fn update_test(
-//   expected: String,
-//   using: fn(Checker(simplifile.FileError)) -> Result(Nil, a),
-// ) -> Nil {
-//   let self = process.new_subject()
-//   let write = fn(_, content) {
-//     process.send(self, content)
-//     Ok(Nil)
-//   }
-// 
-//   assert using(checkmark.new(simplifile.read, write)) == Ok(Nil)
-// 
-//   let assert Ok(written) = process.receive(self, 0)
-//   let assert Ok(expected) = simplifile.read(expected)
-//   assert written == expected
-// }
+
+fn update_test(
+  expected: String,
+  configure: fn(Configuration) -> Configuration,
+) -> Nil {
+  let self = process.new_subject()
+  let write = fn(_, content) {
+    process.send(self, content)
+    Ok(Nil)
+  }
+
+  assert checkmark.new()
+    |> configure
+    |> checkmark.update_with_writer(write)
+    == Ok(Nil)
+
+  let assert Ok(written) = process.receive(self, 0)
+  let assert Ok(expected) = simplifile.read(expected)
+  assert written == expected
+}

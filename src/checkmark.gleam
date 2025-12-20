@@ -5,6 +5,7 @@ import checkmark/internal/config.{type Config, type Expectation}
 import checkmark/internal/lines
 import checkmark/internal/parser
 import gleam/dict.{type Dict}
+import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
@@ -198,6 +199,53 @@ pub fn check_or_update(
 /// and [`should_contain_snippet_from`](#should_contain_snippet_from)
 /// to configure the content.
 pub fn check(configuration: Configuration) -> Result(Nil, CheckErrors) {
+  case get_replacements_from_files(configuration) {
+    // TODO: Check that replacement is needed when building them
+    #([], [], []) -> Ok(Nil)
+
+    #(_, file_errors, errors) -> Error(CheckErrors(file_errors, errors))
+  }
+}
+
+/// Updates the code blocks in the target file.
+/// See [`should_contain_contents_of`](#should_contain_contents_of)
+/// and [`should_contain_snippet_from`](#should_contain_snippet_from)
+/// to configure the content.
+pub fn update(configuration: Configuration) -> Result(Nil, CheckErrors) {
+  update_with_writer(configuration, simplifile.write)
+}
+
+@internal
+pub fn update_with_writer(
+  configuration: Configuration,
+  write: fn(String, String) -> Result(Nil, simplifile.FileError),
+) -> Result(Nil, CheckErrors) {
+  let #(replacements, file_errors, errors) =
+    get_replacements_from_files(configuration)
+
+  let results = {
+    use replacement <- list.map(replacements)
+    let new_content = render_file(replacement)
+    write(replacement.filename, new_content)
+    |> result.map_error(fn(e) { #(replacement.filename, e) })
+  }
+
+  let #(_, new_errors) = result.partition(results)
+  let file_errors = list.append(file_errors, new_errors)
+
+  case errors, file_errors {
+    [], [] -> Ok(Nil)
+    _, _ -> Error(CheckErrors(file_errors, errors))
+  }
+}
+
+fn get_replacements_from_files(
+  configuration: Configuration,
+) -> #(
+  List(FileReplacements),
+  List(#(String, simplifile.FileError)),
+  List(ContentError),
+) {
   let #(inputs, file_errors) = {
     use #(inputs, errors), filename <- set.fold(
       input_files(configuration.expectations),
@@ -212,27 +260,18 @@ pub fn check(configuration: Configuration) -> Result(Nil, CheckErrors) {
 
   let #(replacements, errors) =
     get_replacements(configuration.expectations, inputs)
-  case file_errors, errors, replacements {
-    // TODO: Check that replacement is needed when building them
-    [], [], [] -> Ok(Nil)
 
-    _, _, _ -> Error(CheckErrors(file_errors, errors))
-  }
-}
-
-/// Updates the code blocks in the target file.
-/// See [`should_contain_contents_of`](#should_contain_contents_of)
-/// and [`should_contain_snippet_from`](#should_contain_snippet_from)
-/// to configure the content.
-pub fn update(configuration: Configuration) -> Result(Nil, CheckErrors) {
-  todo
+  #(replacements, file_errors, errors)
 }
 
 /// Replacements in a single file
 pub type FileReplacements {
   FileReplacements(
+    /// The file the replacements apply to.
     filename: String,
+    /// The old lines in the file.
     lines: List(String),
+    /// The replacements that should be made in the file.
     replacements: List(Replacement),
   )
 }
@@ -240,6 +279,40 @@ pub type FileReplacements {
 /// A single replacement within a file
 pub type Replacement {
   Replacement(from_line: Int, to_line: Int, new_lines: List(String))
+}
+
+fn render_file(replacements: FileReplacements) -> String {
+  let FileReplacements(lines:, replacements:, ..) = replacements
+  let replacements = {
+    use replacements, replacement <- list.fold(replacements, dict.new())
+    dict.insert(replacements, replacement.from_line, replacement)
+  }
+
+  let #(result, _) = {
+    use #(result, skip_until), line, index <- list.index_fold(lines, #("", None))
+    case skip_until {
+      Some(skip_until) if skip_until == index -> #(result, None)
+
+      None -> {
+        case dict.get(replacements, index) {
+          Ok(Replacement(to_line:, new_lines:, ..)) -> {
+            let result = list.fold(new_lines, result, string.append)
+            case to_line - 1 == index {
+              // TODO: Zero lines case!
+              True -> #(result, None)
+              False -> #(result, Some(to_line - 1))
+            }
+          }
+
+          Error(Nil) -> #(string.append(result, line), None)
+        }
+      }
+
+      skip_until -> #(result, skip_until)
+    }
+  }
+
+  result
 }
 
 /// Calculates the input files for the given configuration.
@@ -353,7 +426,7 @@ fn create_replacement(
   sections: List(parser.Section),
   expectation: Expectation,
 ) -> Result(Replacement, Option(ContentError)) {
-  use lines <- result.try(case expectation {
+  use new_lines <- result.try(case expectation {
     config.ContentsOfFile(filename:, ..) ->
       dict.get(inputs.input_files, filename)
       // Missing inputs are not reported ere
@@ -386,13 +459,11 @@ fn create_replacement(
     })
 
   case sections {
-    [section] -> {
-      let line_count = list.length(section.lines)
-      Ok(Replacement(
-        section.line_number,
-        section.line_number + line_count,
-        lines,
-      ))
+    [parser.FencedCode(line_number:, lines:, prefix:, start_fence:, ..)] -> {
+      let line_count = list.length(lines)
+      let prefix = prefix <> string.repeat(" ", start_fence.indent)
+      let new_lines = list.map(new_lines, string.append(prefix, _))
+      Ok(Replacement(line_number, line_number + line_count, new_lines))
     }
 
     [] -> Error(Some(TagNotFound(filename, expectation.tag)))
