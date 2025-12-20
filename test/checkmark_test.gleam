@@ -26,7 +26,7 @@ pub fn check_existing_file_test() {
     })
     |> checkmark.check()
     == Error([
-      MultipleTagsFound("multiple", [1, 6]),
+      MultipleTagsFound("test/assets/test.md", "multiple", [1, 6]),
       TagNotFound("test/assets/test.md", "not_present"),
     ])
 }

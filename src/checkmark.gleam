@@ -39,7 +39,7 @@ pub type CheckError {
   /// Could not find a code snippet with the given tag.
   TagNotFound(filename: String, tag: String)
   /// Found multiple code blocks with the same tag.
-  MultipleTagsFound(tag: String, lines: List(Int))
+  MultipleTagsFound(filename: String, tag: String, lines: List(Int))
   /// While checking, the content didn't match expectations.
   ContentDidNotMatch(tag: String)
   /// Could not parse a Gleam source file as a snippet source.
@@ -49,6 +49,9 @@ pub type CheckError {
   InputNotProvided(filename: String)
   SnippetNotFound(file: String, name: String)
   CouldNotLoadSnippet(file: String, name: String)
+
+  // TODO: Make this better?
+  CodeFileError
 }
 
 type CodeSegment =
@@ -256,219 +259,57 @@ pub fn get_replacements(
   config: Config,
   inputs: Dict(String, String),
 ) -> #(List(FileReplacements), List(CheckError)) {
-  let state =
-    new_state(inputs)
-    |> load_snippets(config)
+  let #(code_files, errors) = load_snippets(config, inputs)
+  let splitter = splitter.new(["\n", "\r\n"])
+  let inputs = ReplaceInputs(splitter, inputs, code_files)
 
-  let state = {
-    use state, filename, expectations <- dict.fold(config, state)
-    get_file_replacements(state, filename, expectations)
+  let results = {
+    use results, filename, expectations <- dict.fold(config, list.new())
+    [get_file_replacements(inputs, filename, expectations), ..results]
   }
 
-  #(state.replacements, set.to_list(state.errors))
+  let #(results, new_errors) = result.partition(results)
+  let errors = list.append(errors, new_errors)
+
+  // Fold the inner errors into the outer errors
+  {
+    use #(replacements, errors), #(replacement, new_errors) <- list.fold(
+      results,
+      #(list.new(), errors),
+    )
+    #([replacement, ..replacements], list.append(errors, new_errors))
+  }
 }
 
-/// Helper record for incrementally building state
-type ReplaceState {
-  ReplaceState(
+type ReplaceInputs {
+  ReplaceInputs(
     /// Splitter to be reused
     splitter: splitter.Splitter,
     /// Contents of input files
-    inputs: Dict(String, String),
+    input_files: Dict(String, String),
     /// Parsed Gleam files (we parse them only once)
     code_files: Dict(String, code_extractor.File),
-    /// Successful replacements
-    replacements: List(FileReplacements),
-    /// Found errors
-    errors: Set(CheckError),
   )
 }
 
-/// Missing
-fn new_state(inputs: Dict(String, String)) -> ReplaceState {
-  let splitter = splitter.new(["\n", "\r\n"])
-  ReplaceState(splitter, inputs, dict.new(), list.new(), set.new())
-}
+fn load_snippets(
+  config: Config,
+  inputs: Dict(String, String),
+) -> #(Dict(String, code_extractor.File), List(CheckError)) {
+  use #(code_files, errors), filename <- set.fold(snippet_files(config), #(
+    dict.new(),
+    list.new(),
+  ))
 
-fn add_code_file(
-  state: ReplaceState,
-  filename: String,
-  file: code_extractor.File,
-) -> ReplaceState {
-  ReplaceState(
-    ..state,
-    code_files: dict.insert(state.code_files, filename, file),
-  )
-}
-
-fn add_replacments(
-  state: ReplaceState,
-  replacements: FileReplacements,
-) -> ReplaceState {
-  ReplaceState(..state, replacements: [replacements, ..state.replacements])
-}
-
-fn add_missing_input(state: ReplaceState, input: String) -> ReplaceState {
-  ReplaceState(
-    ..state,
-    errors: set.insert(state.errors, InputNotProvided(input)),
-  )
-}
-
-fn use_input(
-  state: ReplaceState,
-  input: String,
-  then: fn(String) -> ReplaceState,
-) -> ReplaceState {
-  case dict.get(state.inputs, input) {
-    Error(Nil) -> add_missing_input(state, input)
-    Ok(content) -> then(content)
-  }
-}
-
-fn add_invalid_code(state: ReplaceState, input: String) -> ReplaceState {
-  ReplaceState(
-    ..state,
-    errors: set.insert(state.errors, CouldNotParseSnippetSource(input)),
-  )
-}
-
-fn add_invalid_segment(
-  state: ReplaceState,
-  filename: String,
-  error: ExtractError,
-) -> ReplaceState {
-  let error = case error {
-    code_extractor.NameNotFound(name:) -> SnippetNotFound(filename, name)
-    code_extractor.SpanExtractionFailed(name:) ->
-      CouldNotLoadSnippet(filename, name)
-  }
-  ReplaceState(..state, errors: set.insert(state.errors, error))
-}
-
-fn get_file_replacements(
-  state: ReplaceState,
-  filename: String,
-  expectations: List(Expectation),
-) -> ReplaceState {
-  use content <- use_input(state, filename)
-  let lines = lines.to_lines(state.splitter, content, [])
-  let sections = {
-    let search_in_comments = string.ends_with(filename, ".gleam")
-    parser.parse(lines, search_in_comments)
-  }
-
-  let #(state, replacements) = {
-    use #(state, replacements), expectation <- list.fold(expectations, #(
-      state,
-      list.new(),
-    ))
-
-    let #(state, replacement) = create_replacement(state, sections, expectation)
-    let #(state, replacements) = case replacement {
-      Ok(replacement) -> #(state, [replacement, ..replacements])
-      Error(Nil) -> #(
-        ReplaceState(
-          ..state,
-          errors: set.insert(
-            state.errors,
-            TagNotFound(filename, expectation.tag),
-          ),
-        ),
-        replacements,
-      )
-    }
-    #(state, replacements)
-  }
-
-  add_replacments(state, FileReplacements(filename, lines, replacements))
-}
-
-fn create_replacement(
-  state: ReplaceState,
-  sections: List(parser.Section),
-  expectation: Expectation,
-) -> #(ReplaceState, Result(Replacement, Nil)) {
-  let #(state, lines) = case expectation {
-    config.CodeSegment(filename:, segment:, ..) ->
-      get_code_segment(state, filename, segment)
-
-    config.ContentsOfFile(filename:, ..) -> get_file_content(state, filename)
-  }
-
-  // Errors are added to the state already above, so they can be ignored here.
-  // Also, the missing tag can only be reported by the caller.
-  let replacement =
-    result.try(lines, build_replacement(sections, expectation.tag, _))
-  #(state, replacement)
-}
-
-// Build a replacement or return an error if the target was not found.
-fn build_replacement(
-  sections: List(parser.Section),
-  tag: String,
-  replacement: List(String),
-) -> Result(Replacement, Nil) {
-  let sections =
-    list.filter(sections, fn(section) {
-      case section {
-        parser.FencedCode(start_fence: fence, ..) ->
-          string.trim(fence.info) == tag
-        _ -> False
-      }
-    })
-
-  case sections {
-    [section] -> {
-      let line_count = list.length(section.lines)
-      Ok(Replacement(
-        section.line_number,
-        section.line_number + line_count,
-        replacement,
-      ))
-    }
-
-    // TODO error for multiple matches
-    _ -> Error(Nil)
-  }
-}
-
-fn get_file_content(
-  state: ReplaceState,
-  filename: String,
-) -> #(ReplaceState, Result(List(String), Nil)) {
-  case dict.get(state.inputs, filename) {
-    Error(Nil) -> #(add_missing_input(state, filename), Error(Nil))
-    Ok(content) -> #(state, Ok(lines.to_lines(state.splitter, content, [])))
-  }
-}
-
-fn get_code_segment(
-  state: ReplaceState,
-  filename: String,
-  segment: CodeSegment,
-) -> #(ReplaceState, Result(List(String), Nil)) {
-  case dict.get(state.code_files, filename) {
-    // If this missing, the error was reported already earlier, do nothing.
-    Error(Nil) -> #(state, Error(Nil))
-
-    Ok(code_file) ->
-      case code_extractor.extract(code_file, segment) {
-        Ok(lines) -> #(state, Ok(lines))
-        Error(e) -> #(add_invalid_segment(state, filename, e), Error(Nil))
-      }
-  }
-}
-
-fn load_snippets(state: ReplaceState, config: Config) -> ReplaceState {
-  use state, filename <- set.fold(snippet_files(config), state)
-
-  case dict.get(state.inputs, filename) {
-    Error(Nil) -> add_missing_input(state, filename)
+  case dict.get(inputs, filename) {
+    Error(Nil) -> #(code_files, [InputNotProvided(filename), ..errors])
     Ok(content) ->
       case code_extractor.load(content) {
-        Error(_) -> add_invalid_code(state, filename)
-        Ok(file) -> add_code_file(state, filename, file)
+        Error(_) -> #(code_files, [
+          CouldNotParseSnippetSource(filename),
+          ..errors
+        ])
+        Ok(file) -> #(dict.insert(code_files, filename, file), errors)
       }
   }
 }
@@ -480,5 +321,81 @@ fn snippet_files(config: Config) -> Set(String) {
   case expectation {
     config.CodeSegment(filename:, ..) -> set.insert(result, filename)
     config.ContentsOfFile(..) -> result
+  }
+}
+
+// Get replacements for the file.
+// It can either fail entirely, or produce replacements and errors.
+fn get_file_replacements(
+  inputs: ReplaceInputs,
+  filename: String,
+  expectations: List(Expectation),
+) -> Result(#(FileReplacements, List(CheckError)), CheckError) {
+  use content <- result.try(
+    dict.get(inputs.input_files, filename)
+    |> result.replace_error(InputNotProvided(filename)),
+  )
+  let lines = lines.to_lines(inputs.splitter, content, [])
+  let sections = {
+    let search_in_comments = string.ends_with(filename, ".gleam")
+    parser.parse(lines, search_in_comments)
+  }
+
+  let #(replacements, errors) =
+    expectations
+    |> list.map(create_replacement(inputs, filename, sections, _))
+    |> result.partition
+
+  Ok(#(FileReplacements(filename, lines, replacements), errors))
+}
+
+fn create_replacement(
+  inputs: ReplaceInputs,
+  filename: String,
+  sections: List(parser.Section),
+  expectation: Expectation,
+) -> Result(Replacement, CheckError) {
+  use lines <- result.try(case expectation {
+    config.ContentsOfFile(filename:, ..) ->
+      dict.get(inputs.input_files, filename)
+      |> result.replace_error(InputNotProvided(filename))
+      |> result.map(lines.to_lines(inputs.splitter, _, []))
+
+    config.CodeSegment(filename:, segment:, ..) ->
+      dict.get(inputs.code_files, filename)
+      // This was either a missing input or parsing failed,
+      // we don't know at this point.
+      |> result.replace_error(CodeFileError)
+      |> result.try(fn(code_file) {
+        code_extractor.extract(code_file, segment)
+        |> result.replace_error(CouldNotLoadSnippet(filename, segment.name))
+      })
+  })
+
+  let sections =
+    list.filter(sections, fn(section) {
+      case section {
+        parser.FencedCode(start_fence: fence, ..) ->
+          string.trim(fence.info) == expectation.tag
+        _ -> False
+      }
+    })
+
+  case sections {
+    [section] -> {
+      let line_count = list.length(section.lines)
+      Ok(Replacement(
+        section.line_number,
+        section.line_number + line_count,
+        lines,
+      ))
+    }
+
+    [] -> Error(TagNotFound(filename, expectation.tag))
+
+    sections -> {
+      let lines = list.map(sections, fn(section) { section.line_number })
+      Error(MultipleTagsFound(filename, expectation.tag, lines))
+    }
   }
 }
