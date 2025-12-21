@@ -117,3 +117,67 @@ pub fn replace_lines_test() {
 
   assert caret.to_string(replaced) == "1\nTwo\nThree\n4"
 }
+
+pub fn auto_unindent_test() {
+  let text =
+    "
+   1
+    2
+  3"
+
+  assert caret.from_string(text)
+    |> caret.auto_unindent
+    |> caret.to_string
+    == "\n 1\n  2\n3"
+}
+
+pub fn auto_unindent_two_levels_test() {
+  let text =
+    "
+    1
+      2
+       3"
+
+  assert caret.from_string(text)
+    |> caret.auto_unindent
+    |> caret.to_string
+    == "\n1\n  2\n   3"
+}
+
+pub fn auto_unindent_tabs_test() {
+  // This should be only one tab stop
+  let text =
+    "\t\t1
+ \t 2"
+
+  assert caret.from_string(text)
+    |> caret.auto_unindent
+    |> caret.to_string
+    == "\t1\n 2"
+}
+
+pub fn unindent_test() {
+  let text =
+    "1
+ 2
+\t3
+   4
+   \t5"
+
+  assert caret.from_string(text)
+    |> caret.unindent(1)
+    |> caret.to_string
+    == "1\n2\n3\n 4\n \t5"
+}
+
+pub fn unindent_two_level_test() {
+  let text =
+    "1
+    2
+      3"
+
+  assert caret.from_string(text)
+    |> caret.unindent(2)
+    |> caret.to_string
+    == "1\n2\n  3"
+}
