@@ -203,7 +203,7 @@ fn unindent_line(
   }
 }
 
-pub fn fold(
+pub fn fold_lines(
   over text: Text,
   from state: state,
   with fun: fn(state, String) -> state,
@@ -211,10 +211,26 @@ pub fn fold(
   iv.fold(text.lines, state, fun)
 }
 
-pub fn fold_right(
+pub fn fold_lines_with_index(
+  over text: Text,
+  from state: state,
+  with fun: fn(state, String, Int) -> state,
+) -> state {
+  iv.index_fold(text.lines, state, fun)
+}
+
+pub fn fold_lines_right(
   over text: Text,
   from state: state,
   with fun: fn(state, String) -> state,
 ) -> state {
   iv.fold_right(text.lines, state, fun)
+}
+
+pub fn fold_lines_with_index_right(
+  over text: Text,
+  from state: state,
+  with fun: fn(state, String, Int) -> state,
+) -> state {
+  iv.index_fold_right(text.lines, state, fun)
 }

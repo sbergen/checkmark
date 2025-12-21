@@ -202,12 +202,14 @@ pub fn with_tab_stop_test() {
 
 pub fn fold_test() {
   assert caret.from_string("1\n2\nfoo\n3")
-    |> caret.fold(0, fn(sum, line) { sum + result.unwrap(int.parse(line), 0) })
+    |> caret.fold_lines(0, fn(sum, line) {
+      sum + result.unwrap(int.parse(line), 0)
+    })
     == 6
 }
 
 pub fn fold_right_test() {
   assert caret.from_string("1\n2\n3")
-    |> caret.fold_right([], list.prepend)
+    |> caret.fold_lines_right([], list.prepend)
     == ["1", "2", "3"]
 }
