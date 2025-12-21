@@ -99,19 +99,11 @@ fn to_block(
   let text = caret.map_lines(text, string.drop_start(_, string.length(prefix)))
   CodeBlock(
     line_number,
-    caret.map_lines(text, remove_indent_up_to(_, start_fence.indent)),
+    text |> caret.with_tab_stop_width(1) |> caret.unindent(start_fence.indent),
     prefix:,
     start_fence:,
     end_fence:,
   )
-}
-
-fn remove_indent_up_to(string: String, indent: Int) -> String {
-  case indent, string {
-    0, _ -> string
-    _, " " <> rest -> remove_indent_up_to(rest, indent - 1)
-    _, _ -> string
-  }
 }
 
 fn should_close(start: Fence, end: Fence) {

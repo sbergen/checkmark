@@ -25,7 +25,10 @@ three",
 }
 
 pub fn basic_snippet_test() {
-  assert parser.parse(
+  let assert [
+    CodeBlock(2, code, "", Fence("```", "tag", 0), Some(Fence("```", "", 0))),
+  ] =
+    parser.parse(
       caret.from_string(
         "start
 ```gleam tag 
@@ -36,22 +39,22 @@ rest",
       ),
       False,
     )
-    == [
-      CodeBlock(
-        2,
-        caret.from_string(
-          "code
-more_code",
-        ),
-        "",
-        Fence("```", "tag", 0),
-        Some(Fence("```", "", 0)),
-      ),
-    ]
+
+  assert caret.to_string(code) == "code
+more_code"
 }
 
 pub fn doc_comment_test() {
-  assert parser.parse(
+  let assert [
+    CodeBlock(
+      4,
+      code,
+      "/// ",
+      Fence("```", "tag", 0),
+      Some(Fence("```", "", 0)),
+    ),
+  ] =
+    parser.parse(
       caret.from_string(
         "pub const answer = 42
 
@@ -64,22 +67,16 @@ pub const answer_str = \"*\"",
       ),
       True,
     )
-    == [
-      CodeBlock(
-        4,
-        caret.from_string(
-          "code
-more_code",
-        ),
-        "/// ",
-        Fence("```", "tag", 0),
-        Some(Fence("```", "", 0)),
-      ),
-    ]
+
+  assert caret.to_string(code) == "code
+more_code"
 }
 
 pub fn module_comment_test() {
-  assert parser.parse(
+  let assert [
+    CodeBlock(2, code, "//// ", Fence("```", "", 0), Some(Fence("```", "", 0))),
+  ] =
+    parser.parse(
       caret.from_string(
         "//// start
 //// ```gleam
@@ -89,15 +86,7 @@ pub fn module_comment_test() {
       ),
       True,
     )
-    == [
-      CodeBlock(
-        2,
-        caret.from_string("code"),
-        "//// ",
-        Fence("```", "", 0),
-        Some(Fence("```", "", 0)),
-      ),
-    ]
+  assert caret.to_string(code) == "code"
 }
 
 pub fn unfinished_comment_block_test() {
@@ -134,7 +123,10 @@ not indented enough"
 }
 
 pub fn non_matching_fences_test() {
-  assert parser.parse(
+  let assert [
+    CodeBlock(1, code, "", Fence("````", "", 0), Some(Fence("````", "", 0))),
+  ] =
+    parser.parse(
       caret.from_string(
         "````
 ```
@@ -144,19 +136,10 @@ code
       ),
       False,
     )
-    == [
-      CodeBlock(
-        1,
-        caret.from_string(
-          "```
+
+  assert caret.to_string(code) == "```
 ~~~
-code",
-        ),
-        "",
-        Fence("````", "", 0),
-        Some(Fence("````", "", 0)),
-      ),
-    ]
+code"
 }
 
 pub fn missing_end_fence_test() {
