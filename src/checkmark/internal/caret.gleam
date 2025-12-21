@@ -77,6 +77,12 @@ fn with_lines(text: Text, lines: Array(String)) {
   Text(..text, lines:)
 }
 
+/// Returns a new text with the given tab stop setting.
+/// Only affects unindentation operations.
+pub fn with_tab_stop_width(text: Text, tab_stop: Int) {
+  Text(..text, tab_stop:)
+}
+
 /// Returns the number lines in the text.
 pub fn line_count(text: Text) -> Int {
   iv.length(text.lines)
@@ -138,7 +144,7 @@ pub fn auto_unindent(text: Text) -> Text {
   }
 }
 
-/// Unindents the given number of tab stops 
+/// Unindents every line the given number of tab stops, if possible.
 pub fn unindent(text: Text, tab_stops: Int) -> Text {
   with_lines(
     text,

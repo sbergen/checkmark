@@ -181,3 +181,18 @@ pub fn unindent_two_level_test() {
     |> caret.to_string
     == "1\n2\n  3"
 }
+
+pub fn with_tab_stop_test() {
+  // The first line would count as three indents at 2,
+  // but counts as only one indent with 4.
+  let text =
+    "
+      1
+       2"
+
+  assert caret.from_string(text)
+    |> caret.with_tab_stop_width(4)
+    |> caret.auto_unindent()
+    |> caret.to_string
+    == "\n  1\n   2"
+}
