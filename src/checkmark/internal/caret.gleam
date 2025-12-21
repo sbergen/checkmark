@@ -7,13 +7,13 @@ pub type LineEnding {
   CrLf
 }
 
-pub opaque type Document {
-  Document(lines: Array(String), line_ending: LineEnding)
+pub opaque type Text {
+  Text(lines: Array(String), line_ending: LineEnding)
 }
 
-pub fn document_from_string(content: String) -> Document {
+pub fn from_string(content: String) -> Text {
   // Handling this here makes the line splitting prettier
-  use <- bool.guard(content == "", Document(iv.new(), Lf))
+  use <- bool.guard(content == "", Text(iv.new(), Lf))
 
   let splitter = splitter.new(["\n", "\r\n"])
   let #(lines, #(lf_count, crlf_count)) =
@@ -24,7 +24,7 @@ pub fn document_from_string(content: String) -> Document {
     False -> Lf
   }
 
-  Document(lines:, line_ending:)
+  Text(lines:, line_ending:)
 }
 
 fn get_lines(
@@ -55,14 +55,14 @@ fn get_lines(
   }
 }
 
-pub fn line_count(document: Document) -> Int {
-  iv.length(document.lines)
+pub fn line_count(text: Text) -> Int {
+  iv.length(text.lines)
 }
 
-pub fn get_line(document: Document, index: Int) -> Result(String, Nil) {
-  iv.get(document.lines, index)
+pub fn line(text: Text, index: Int) -> Result(String, Nil) {
+  iv.get(text.lines, index)
 }
 
-pub fn line_ending(document: Document) -> LineEnding {
-  document.line_ending
+pub fn line_ending(text: Text) -> LineEnding {
+  text.line_ending
 }
