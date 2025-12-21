@@ -1,4 +1,5 @@
 ```gleam function
+all lines
 should be replaced
 ```
 
@@ -10,6 +11,6 @@ should be replaced
 should be replaced
 ```
 
+Empty blocks should be also replaced properly:
 ```gleam type alias
-should be replaced
 ```

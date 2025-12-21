@@ -283,25 +283,38 @@ fn render_file(replacements: FileReplacements) -> String {
   }
 
   let #(result, _) = {
-    use #(result, skip_until), line, index <- list.index_fold(lines, #("", None))
-    case skip_until {
-      Some(skip_until) if skip_until == index -> #(result, None)
-
-      None -> {
+    use #(result, include_after), line, index <- list.index_fold(lines, #(
+      "",
+      None,
+    ))
+    case include_after {
+      // Not skipping old content, look for a replacement
+      None ->
         case dict.get(replacements, index) {
-          Ok(Replacement(to_line:, new_lines:, ..)) -> {
+          Ok(Replacement(from_line:, to_line:, new_lines:)) -> {
             let result = list.fold(new_lines, result, string.append)
-            case to_line - 1 == index {
-              // TODO: Zero lines case!
-              True -> #(result, None)
-              False -> #(result, Some(to_line - 1))
+            // Check if the replacement block is empty, or only a single line
+            case to_line - from_line {
+              // The block to replace is empty: we need to include the current line
+              // (which should be the end fence).
+              0 -> #(string.append(result, line), None)
+
+              // The block to replace was one line long, so we skip only this line.
+              1 -> #(result, None)
+
+              // Skip lines until the end of the block
+              _ -> #(result, Some(to_line - 1))
             }
           }
 
+          // Didn't find a replacement, add the current line
           Error(Nil) -> #(string.append(result, line), None)
         }
-      }
 
+      // We reached the last line, start including lines after this
+      Some(include_after) if include_after <= index -> #(result, None)
+
+      // There's still more to skip.
       skip_until -> #(result, skip_until)
     }
   }

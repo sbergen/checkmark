@@ -15,6 +15,7 @@ pub type Wibble {
 }
 ```
 
+Empty blocks should be also replaced properly:
 ```gleam type alias
 type Wobble = Wibble
 ```
