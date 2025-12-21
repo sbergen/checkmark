@@ -1,5 +1,6 @@
 import gleam/bool
 import gleam/int
+import gleam/list
 import gleam/result
 import iv.{type Array}
 import splitter.{type Splitter}
@@ -233,4 +234,27 @@ pub fn fold_lines_with_index_right(
   with fun: fn(state, String, Int) -> state,
 ) -> state {
   iv.index_fold_right(text.lines, state, fun)
+}
+
+/// Represents an edit to be done as part of batch processing
+pub type Edit {
+  ReplaceLines(at: Int, count: Int, with: Text)
+}
+
+/// Applies a number of edits in order,
+/// as if they were all applied to line positions of the original text.
+/// Any out-of range positions will result in an error.
+pub fn apply_all(text: Text, edits: List(Edit)) -> Result(Text, Nil) {
+  {
+    use #(text, line_offset), edit <- list.try_fold(edits, #(text, 0))
+    case edit {
+      ReplaceLines(at:, count:, with:) ->
+        replace_lines(text, at + line_offset, count, with)
+        |> result.map(fn(text) {
+          let line_offset = line_offset + line_count(with) - count
+          #(text, line_offset)
+        })
+    }
+  }
+  |> result.map(fn(result) { result.0 })
 }
