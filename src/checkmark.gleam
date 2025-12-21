@@ -417,14 +417,11 @@ fn get_file_replacements(
 
   // Filter out already matching blocks
   let replacements = {
-    use replacement <- list.filter(replacements)
-    let existing_slice =
-      caret.slice_lines_clamped(
-        text,
-        replacement.at_line,
-        replacement.line_count,
-      )
-    !caret.lines_equal(existing_slice, replacement.text)
+    use Replacement(text:, at_line:, line_count:, ..) <- list.filter(
+      replacements,
+    )
+    let existing_slice = caret.slice_lines_clamped(text, at_line, line_count)
+    !caret.lines_equal(existing_slice, text)
   }
 
   let errors = option.values(errors)
