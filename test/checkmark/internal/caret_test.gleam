@@ -1,4 +1,7 @@
 import checkmark/internal/caret.{CrLf, Lf}
+import gleam/int
+import gleam/list
+import gleam/result
 
 pub fn empty_text_test() {
   let text = caret.from_string("")
@@ -195,4 +198,16 @@ pub fn with_tab_stop_test() {
     |> caret.auto_unindent()
     |> caret.to_string
     == "\n  1\n   2"
+}
+
+pub fn fold_test() {
+  assert caret.from_string("1\n2\nfoo\n3")
+    |> caret.fold(0, fn(sum, line) { sum + result.unwrap(int.parse(line), 0) })
+    == 6
+}
+
+pub fn fold_right_test() {
+  assert caret.from_string("1\n2\n3")
+    |> caret.fold_right([], list.prepend)
+    == ["1", "2", "3"]
 }

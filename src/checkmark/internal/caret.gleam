@@ -202,3 +202,19 @@ fn unindent_line(
     _, _ -> string
   }
 }
+
+pub fn fold(
+  over text: Text,
+  from state: state,
+  with fun: fn(state, String) -> state,
+) -> state {
+  iv.fold(text.lines, state, fun)
+}
+
+pub fn fold_right(
+  over text: Text,
+  from state: state,
+  with fun: fn(state, String) -> state,
+) -> state {
+  iv.fold_right(text.lines, state, fun)
+}

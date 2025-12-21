@@ -1,6 +1,7 @@
 import gleam/list
 import splitter
 
+// TODO: Use caret instead of lines
 pub fn to_lines(
   splitter: splitter.Splitter,
   content: String,
