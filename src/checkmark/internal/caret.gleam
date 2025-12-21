@@ -208,6 +208,17 @@ pub fn map_lines(text: Text, with: fn(String) -> String) -> Text {
   with_lines(text, iv.map(text.lines, with))
 }
 
+pub fn transform_line_range(
+  text: Text,
+  at index: Int,
+  count count: Int,
+  with fun: fn(Text) -> Text,
+) -> Result(Text, Nil) {
+  slice_lines(text, index, count)
+  |> result.map(fun)
+  |> result.try(replace_lines(text, index, count, _))
+}
+
 /// Removes a single trailing newline, if present
 pub fn without_trailing_newline(text: Text) -> Text {
   case iv.last(text.lines) {

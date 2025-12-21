@@ -286,3 +286,11 @@ pub fn without_trailing_newline_test() {
     |> caret.to_string
     == "wibble\n"
 }
+
+pub fn tranform_line_range_test() {
+  let assert Ok(text) =
+    caret.from_string("  1\n  2\n  3\n  4")
+    |> caret.transform_line_range(at: 1, count: 2, with: caret.auto_unindent)
+
+  assert caret.to_string(text) == "  1\n2\n3\n  4"
+}
