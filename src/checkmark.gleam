@@ -5,7 +5,6 @@ import checkmark/internal/config.{type Config, type Expectation}
 import checkmark/internal/lines
 import checkmark/internal/parser
 import gleam/dict.{type Dict}
-import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
@@ -98,7 +97,7 @@ pub fn document(
   filename: String,
   configure: fn(ExpectationBuilder) -> ExpectationBuilder,
 ) -> Configuration {
-  // TODO: Check if file is already configured
+  // TODO: Check if file is already configured?
   let builder = configure(ExpectationBuilder(filename, list.new()))
   Configuration(expectations: dict.insert(
     configuration.expectations,
@@ -117,13 +116,8 @@ pub fn comments_in(
   filename: String,
   configure: fn(ExpectationBuilder) -> ExpectationBuilder,
 ) -> Configuration {
-  // TODO: Check if file is already configured
-  let builder = configure(ExpectationBuilder(filename, list.new()))
-  Configuration(dict.insert(
-    configuration.expectations,
-    builder.filename,
-    builder.expectations,
-  ))
+  // TODO: should we explicitly specify the document type?
+  document(configuration, filename, configure)
 }
 
 /// Specify that the file should contain the contents of another file as a code block.

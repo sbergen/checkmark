@@ -6,7 +6,7 @@ import gleam/dict
 import simplifile
 
 pub fn valid_config_test() {
-  let assert Ok(toml) = simplifile.read("test/assets/config.toml")
+  let assert Ok(toml) = simplifile.read("test_assets/config.toml")
   let assert Ok(config) = config.parse(toml)
 
   let expected =
