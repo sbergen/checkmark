@@ -2,8 +2,8 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 
-pub type FencedCode {
-  FencedCode(
+pub type CodeBlock {
+  ClodBlock(
     line_number: Int,
     lines: List(String),
     prefix: String,
@@ -29,7 +29,7 @@ type LineContent {
   LineContent(prefix: String, content: String)
 }
 
-pub fn parse(lines: List(String), search_in_comments: Bool) -> List(FencedCode) {
+pub fn parse(lines: List(String), search_in_comments: Bool) -> List(CodeBlock) {
   case lines {
     [first, ..rest] -> parse_lines(search_in_comments, 1, [], None, first, rest)
     [] -> []
@@ -42,7 +42,7 @@ fn add_parts(builder: Builder, line: LineContent) -> Builder {
 
 fn to_section(builder: Builder, end_fence: Option(Fence)) {
   let Builder(line_number:, lines:, start_fence:, prefix:) = builder
-  FencedCode(
+  ClodBlock(
     line_number,
     strip_indent(lines, start_fence.indent) |> list.reverse(),
     prefix:,
@@ -54,11 +54,11 @@ fn to_section(builder: Builder, end_fence: Option(Fence)) {
 fn parse_lines(
   search_in_comments: Bool,
   line_number: Int,
-  sections: List(FencedCode),
+  sections: List(CodeBlock),
   current_builder: Option(Builder),
   line: String,
   rest: List(String),
-) -> List(FencedCode) {
+) -> List(CodeBlock) {
   let #(prefix, line, is_comment) = case search_in_comments {
     True -> parse_comment(line)
     False -> #("", line, False)

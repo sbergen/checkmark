@@ -1,4 +1,4 @@
-import checkmark/internal/parser.{Fence, FencedCode}
+import checkmark/internal/parser.{ClodBlock, Fence}
 import gleam/option.{None, Some}
 
 fn comment_agnostic(body: fn(Bool) -> Nil) -> Nil {
@@ -35,7 +35,7 @@ pub fn basic_snippet_test() {
       False,
     )
     == [
-      FencedCode(
+      ClodBlock(
         2,
         [
           "code\r\n",
@@ -63,7 +63,7 @@ pub fn doc_comment_test() {
       True,
     )
     == [
-      FencedCode(
+      ClodBlock(
         4,
         [
           "code\r\n",
@@ -88,7 +88,7 @@ pub fn module_comment_test() {
       True,
     )
     == [
-      FencedCode(
+      ClodBlock(
         2,
         [
           "code\n",
@@ -111,7 +111,7 @@ pub fn unfinished_comment_block_test() {
       True,
     )
     == [
-      FencedCode(
+      ClodBlock(
         2,
         [
           "code\n",
@@ -135,7 +135,7 @@ pub fn indented_snippet_test() {
       False,
     )
     == [
-      FencedCode(
+      ClodBlock(
         1,
         [
           "code\n",
@@ -161,7 +161,7 @@ pub fn non_matching_fences_test() {
       False,
     )
     == [
-      FencedCode(
+      ClodBlock(
         1,
         [
           "```\n",
@@ -183,12 +183,12 @@ pub fn missing_end_fence_test() {
       ],
       False,
     )
-    == [FencedCode(1, ["code\n"], "", Fence("```", "", 0), None)]
+    == [ClodBlock(1, ["code\n"], "", Fence("```", "", 0), None)]
 }
 
 pub fn empty_fence_test() {
   assert parser.parse(["```txt info\n"], False)
-    == [FencedCode(1, [], "", Fence("```", "info", 0), None)]
+    == [ClodBlock(1, [], "", Fence("```", "info", 0), None)]
 }
 
 pub fn emtpy_line_preservation_test() {
@@ -208,7 +208,7 @@ pub fn emtpy_line_preservation_test() {
       False,
     )
     == [
-      FencedCode(
+      ClodBlock(
         4,
         [
           "\n",

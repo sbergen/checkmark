@@ -454,7 +454,7 @@ fn get_file_replacements(
 fn create_replacement(
   inputs: ReplaceInputs,
   filename: String,
-  code_blocks: List(parser.FencedCode),
+  code_blocks: List(parser.CodeBlock),
   expectation: Expectation,
 ) -> Result(Replacement, Option(ContentError)) {
   use new_lines <- result.try(case expectation {
@@ -486,7 +486,7 @@ fn create_replacement(
     })
 
   case code_blocks {
-    [parser.FencedCode(line_number:, lines:, prefix:, start_fence:, ..)] -> {
+    [parser.ClodBlock(line_number:, lines:, prefix:, start_fence:, ..)] -> {
       let line_count = list.length(lines)
       let prefix = prefix <> string.repeat(" ", start_fence.indent)
       let new_lines = list.map(new_lines, string.append(prefix, _))
