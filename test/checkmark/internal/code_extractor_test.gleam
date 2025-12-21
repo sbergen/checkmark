@@ -1,10 +1,13 @@
+import checkmark/internal/caret
 import checkmark/internal/code_extractor.{
-  type File, Function, FunctionBody, TypeAlias, TypeDefinition,
+  type CodeSegment, type ExtractError, Function, FunctionBody, TypeAlias,
+  TypeDefinition,
 }
+import gleam/result
 
 pub fn extract_function_test() {
-  let module =
-    load_module(
+  assert extract(
+      Function("main"),
       "import gleam/result
 
 pub fn main() {
@@ -13,19 +16,30 @@ pub fn main() {
 }
 ",
     )
+    == Ok(
+      "pub fn main() {
 
-  assert code_extractor.extract(module, Function("main"))
-    == Ok([
-      "pub fn main() {\n",
-      "\n",
-      "  Ok(42)\n",
-      "}\n",
-    ])
+  Ok(42)
+}",
+    )
 }
 
 pub fn extract_function_body_test() {
-  let module =
-    load_module(
+  assert extract(
+      FunctionBody("main"),
+      "import gleam/result
+
+pub fn main() {
+  let result = 42
+  result
+}",
+    )
+    == Ok("let result = 42\nresult")
+}
+
+pub fn extract_function_body_weird_indent_test() {
+  assert extract(
+      FunctionBody("main"),
       "import gleam/result
 
 pub fn main() {
@@ -38,34 +52,31 @@ pub fn main() {
 }
 ",
     )
+    == Ok(
+      "  case True {
+    True -> False
+// weird indent
 
-  assert code_extractor.extract(module, FunctionBody("main"))
-    == Ok([
-      "case True {\n",
-      "  True -> False\n",
-      "// weird indent\n",
-      "\n",
-      "  False -> True\n",
-      "}\n",
-    ])
+    False -> True
+  }",
+    )
 }
 
 pub fn extract_function_empty_body_test() {
-  let module =
-    load_module(
+  assert extract(
+      FunctionBody("main"),
       "import gleam/result
 
 pub fn main() {
 }
 ",
     )
-
-  assert code_extractor.extract(module, FunctionBody("main")) == Ok([])
+    == Ok("")
 }
 
 pub fn extract_type_test() {
-  let module =
-    load_module(
+  assert extract(
+      TypeDefinition("Wibble"),
       "import gleam/result
 
 type Wibble {
@@ -74,30 +85,27 @@ type Wibble {
 }
 ",
     )
-
-  assert code_extractor.extract(module, TypeDefinition("Wibble"))
-    == Ok([
-      "type Wibble {\n",
-      "  Wibble\n",
-      "  Wobble\n",
-      "}\n",
-    ])
+    == Ok(
+      "type Wibble {
+  Wibble
+  Wobble
+}",
+    )
 }
 
 pub fn extract_type_alias_test() {
-  let module =
-    load_module(
+  assert extract(
+      TypeAlias("Wibble"),
       "import gleam/result
 
 type Wibble = Wobble
 ",
     )
-
-  assert code_extractor.extract(module, TypeAlias("Wibble"))
-    == Ok(["type Wibble = Wobble\n"])
+    == Ok("type Wibble = Wobble")
 }
 
-fn load_module(source: String) -> File {
+fn extract(segment: CodeSegment, source: String) -> Result(String, ExtractError) {
   let assert Ok(file) = code_extractor.load(source)
-  file
+  code_extractor.extract(file, segment)
+  |> result.map(caret.to_string)
 }

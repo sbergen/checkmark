@@ -264,3 +264,25 @@ pub fn map_lines_test() {
     |> caret.to_string
     == "11\n22\n33"
 }
+
+pub fn without_trailing_newline_test() {
+  assert caret.from_string("")
+    |> caret.without_trailing_newline
+    |> caret.to_string
+    == ""
+
+  assert caret.from_string("wibble\n")
+    |> caret.without_trailing_newline
+    |> caret.to_string
+    == "wibble"
+
+  assert caret.from_string("wibble")
+    |> caret.without_trailing_newline
+    |> caret.to_string
+    == "wibble"
+
+  assert caret.from_string("wibble\n\n")
+    |> caret.without_trailing_newline
+    |> caret.to_string
+    == "wibble\n"
+}

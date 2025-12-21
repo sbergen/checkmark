@@ -1,4 +1,4 @@
-import checkmark/internal/lines.{to_lines}
+import checkmark/internal/caret.{type Text}
 import glance.{type Module, type Span, Span}
 import gleam/bit_array
 import gleam/bool
@@ -30,10 +30,7 @@ pub fn load(source: String) -> Result(File, Nil) {
   Source(bit_array.from_string(source), module, line_ends:)
 }
 
-pub fn extract(
-  file: File,
-  segment: CodeSegment,
-) -> Result(List(String), ExtractError) {
+pub fn extract(file: File, segment: CodeSegment) -> Result(Text, ExtractError) {
   case segment {
     Function(name:) -> {
       use function <- result.try(find_function(file, name))
@@ -54,10 +51,7 @@ pub fn extract(
   }
 }
 
-fn extract_function_body(
-  file: File,
-  name: String,
-) -> Result(List(String), ExtractError) {
+fn extract_function_body(file: File, name: String) -> Result(Text, ExtractError) {
   use function <- result.try(find_function(file, name))
   let span =
     list.first(function.body)
@@ -68,35 +62,11 @@ fn extract_function_body(
 
   use indented <- result.try(case span {
     // no statements!
-    Error(_) -> Ok([])
+    Error(_) -> Ok(caret.from_string(""))
     Ok(span) -> extract_source(file, span, name)
   })
 
-  Ok(unindent(indented))
-}
-
-fn unindent(indented: List(String)) -> List(String) {
-  let indent_amount =
-    list.first(indented)
-    |> result.map(indent_amount(_, 0))
-    |> result.unwrap(0)
-
-  use line <- list.map(indented)
-  remove_space(line, indent_amount)
-}
-
-fn remove_space(string: String, up_to: Int) -> String {
-  case up_to, string {
-    _, " " <> rest if up_to > 0 -> remove_space(rest, up_to - 1)
-    _, _ -> string
-  }
-}
-
-fn indent_amount(string: String, amount: Int) -> Int {
-  case string {
-    " " <> rest -> indent_amount(rest, amount + 1)
-    _ -> amount
-  }
+  Ok(indented |> caret.auto_unindent)
 }
 
 fn statement_span(statement: glance.Statement) -> Span {
@@ -142,14 +112,13 @@ fn extract_source(
   file: File,
   span: Span,
   name: String,
-) -> Result(List(String), ExtractError) {
+) -> Result(Text, ExtractError) {
   let start = include_leading_space(file.text, span.start)
-  let end = include_trailing_space(file.text, span.end)
 
   file.text
-  |> bit_array.slice(start, end - start)
+  |> bit_array.slice(start, span.end - start)
   |> result.try(bit_array.to_string)
-  |> result.map(to_lines(file.line_ends, _, []))
+  |> result.map(caret.from_string)
   |> result.replace_error(SpanExtractionFailed(name))
 }
 
@@ -158,14 +127,6 @@ fn include_leading_space(bits: BitArray, position: Int) -> Int {
   let checked = position - 1
   case bit_array.slice(bits, checked, 1) {
     Ok(<<" ">>) -> include_leading_space(bits, checked)
-    _ -> position
-  }
-}
-
-fn include_trailing_space(bits: BitArray, position: Int) -> Int {
-  case bit_array.slice(bits, position, 1) {
-    Ok(<<" ">>) | Ok(<<"\r">>) | Ok(<<"\n">>) ->
-      include_trailing_space(bits, position + 1)
     _ -> position
   }
 }

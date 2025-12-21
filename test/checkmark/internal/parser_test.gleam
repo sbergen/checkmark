@@ -1,4 +1,5 @@
-import checkmark/internal/parser.{ClodBlock, Fence}
+import checkmark/internal/caret
+import checkmark/internal/parser.{CodeBlock, Fence}
 import gleam/option.{None, Some}
 
 fn comment_agnostic(body: fn(Bool) -> Nil) -> Nil {
@@ -8,39 +9,40 @@ fn comment_agnostic(body: fn(Bool) -> Nil) -> Nil {
 
 pub fn empty_string_test() {
   use in_comments <- comment_agnostic()
-  assert parser.parse([], in_comments) == []
+  assert parser.parse(caret.from_string(""), in_comments) == []
 }
 
 pub fn no_snippets_test() {
   use in_comments <- comment_agnostic()
 
-  let text = [
-    "one\n",
-    "two\r\n",
-    "three\n",
-  ]
+  let text =
+    caret.from_string(
+      "one
+two
+three",
+    )
   assert parser.parse(text, in_comments) == []
 }
 
 pub fn basic_snippet_test() {
   assert parser.parse(
-      [
-        "start\n",
-        "```gleam tag \n",
-        "code\r\n",
-        "more_code\n",
-        "``` \n",
-        "rest\n",
-      ],
+      caret.from_string(
+        "start
+```gleam tag 
+code
+more_code
+``` 
+rest",
+      ),
       False,
     )
     == [
-      ClodBlock(
+      CodeBlock(
         2,
-        [
-          "code\r\n",
-          "more_code\n",
-        ],
+        caret.from_string(
+          "code
+more_code",
+        ),
         "",
         Fence("```", "tag", 0),
         Some(Fence("```", "", 0)),
@@ -50,25 +52,25 @@ pub fn basic_snippet_test() {
 
 pub fn doc_comment_test() {
   assert parser.parse(
-      [
-        "pub const answer = 42\n",
-        "\n",
-        "/// start\n",
-        "/// ```gleam   tag \n",
-        "/// code\r\n",
-        "/// more_code\n",
-        "/// ``` \n",
-        "pub const answer_str = \"*\"\n",
-      ],
+      caret.from_string(
+        "pub const answer = 42
+
+/// start
+/// ```gleam   tag 
+/// code
+/// more_code
+/// ``` 
+pub const answer_str = \"*\"",
+      ),
       True,
     )
     == [
-      ClodBlock(
+      CodeBlock(
         4,
-        [
-          "code\r\n",
-          "more_code\n",
-        ],
+        caret.from_string(
+          "code
+more_code",
+        ),
         "/// ",
         Fence("```", "tag", 0),
         Some(Fence("```", "", 0)),
@@ -78,21 +80,19 @@ pub fn doc_comment_test() {
 
 pub fn module_comment_test() {
   assert parser.parse(
-      [
-        "//// start\n",
-        "//// ```gleam\n",
-        "//// code\n",
-        "//// ``` \n",
-        "//// rest\n",
-      ],
+      caret.from_string(
+        "//// start
+//// ```gleam
+//// code
+//// ``` 
+//// rest",
+      ),
       True,
     )
     == [
-      ClodBlock(
+      CodeBlock(
         2,
-        [
-          "code\n",
-        ],
+        caret.from_string("code"),
         "//// ",
         Fence("```", "", 0),
         Some(Fence("```", "", 0)),
@@ -101,73 +101,57 @@ pub fn module_comment_test() {
 }
 
 pub fn unfinished_comment_block_test() {
-  assert parser.parse(
-      [
-        "//// start\n",
-        "//// ```gleam tag\n",
-        "//// code\n",
-        "rest\n",
-      ],
+  let assert [CodeBlock(2, code, "//// ", Fence("```", "tag", 0), None)] =
+    parser.parse(
+      caret.from_string(
+        "//// start
+//// ```gleam tag
+//// code
+rest",
+      ),
       True,
     )
-    == [
-      ClodBlock(
-        2,
-        [
-          "code\n",
-        ],
-        "//// ",
-        Fence("```", "tag", 0),
-        None,
-      ),
-    ]
+  assert caret.to_string(code) == "code"
 }
 
 pub fn indented_snippet_test() {
-  assert parser.parse(
-      [
-        "   ```gleam tag\n",
-        "   code\n",
-        "     more_code\n",
-        " not indented enough\n",
-        "  ```\n",
-      ],
+  let assert [
+    CodeBlock(1, code, "", Fence("```", "tag", 3), Some(Fence("```", "", 2))),
+  ] =
+    parser.parse(
+      caret.from_string(
+        "   ```gleam tag
+   code
+     more_code
+ not indented enough
+  ```",
+      ),
       False,
     )
-    == [
-      ClodBlock(
-        1,
-        [
-          "code\n",
-          "  more_code\n",
-          "not indented enough\n",
-        ],
-        "",
-        Fence("```", "tag", 3),
-        Some(Fence("```", "", 2)),
-      ),
-    ]
+  assert caret.to_string(code) == "code
+  more_code
+not indented enough"
 }
 
 pub fn non_matching_fences_test() {
   assert parser.parse(
-      [
-        "````\n",
-        "```\n",
-        "~~~\n",
-        "code\n",
-        "````\n",
-      ],
+      caret.from_string(
+        "````
+```
+~~~
+code
+````",
+      ),
       False,
     )
     == [
-      ClodBlock(
+      CodeBlock(
         1,
-        [
-          "```\n",
-          "~~~\n",
-          "code\n",
-        ],
+        caret.from_string(
+          "```
+~~~
+code",
+        ),
         "",
         Fence("````", "", 0),
         Some(Fence("````", "", 0)),
@@ -176,48 +160,40 @@ pub fn non_matching_fences_test() {
 }
 
 pub fn missing_end_fence_test() {
-  assert parser.parse(
-      [
-        "```\n",
-        "code\n",
-      ],
+  let assert [CodeBlock(1, code, "", Fence("```", "", 0), None)] =
+    parser.parse(
+      caret.from_string(
+        "```
+code",
+      ),
       False,
     )
-    == [ClodBlock(1, ["code\n"], "", Fence("```", "", 0), None)]
+  assert caret.to_string(code) == "code"
 }
 
 pub fn empty_fence_test() {
-  assert parser.parse(["```txt info\n"], False)
-    == [ClodBlock(1, [], "", Fence("```", "info", 0), None)]
+  let assert [CodeBlock(1, code, "", Fence("```", "info", 0), None)] =
+    parser.parse(caret.from_string("```txt info\n"), False)
+  assert caret.to_string(code) == ""
 }
 
 pub fn emtpy_line_preservation_test() {
-  assert parser.parse(
-      [
-        "\n",
-        "text\n",
-        "\n",
-        "```\n",
-        "\n",
-        "code\n",
-        "\n",
-        "```\n",
-        "\n",
-        "\n",
-      ],
+  let assert [
+    CodeBlock(3, code, "", Fence("```", "", 0), Some(Fence("```", "", 0))),
+  ] =
+    parser.parse(
+      caret.from_string(
+        "text
+
+```
+
+code
+
+```
+",
+      ),
       False,
     )
-    == [
-      ClodBlock(
-        4,
-        [
-          "\n",
-          "code\n",
-          "\n",
-        ],
-        "",
-        Fence("```", "", 0),
-        Some(Fence("```", "", 0)),
-      ),
-    ]
+
+  assert caret.to_string(code) == "\ncode\n"
 }

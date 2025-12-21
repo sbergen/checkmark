@@ -208,6 +208,14 @@ pub fn map_lines(text: Text, with: fn(String) -> String) -> Text {
   with_lines(text, iv.map(text.lines, with))
 }
 
+/// Removes a single trailing newline, if present
+pub fn without_trailing_newline(text: Text) -> Text {
+  case iv.last(text.lines) {
+    Ok(last) if last == "" -> with_lines(text, iv.drop_last(text.lines, 1))
+    _ -> text
+  }
+}
+
 pub fn fold_lines(
   over text: Text,
   from state: state,

@@ -1,8 +1,8 @@
 //// Keep code blocks in markdown files or Gleam comments up to date.
 
+import checkmark/internal/caret.{type Text}
 import checkmark/internal/code_extractor
 import checkmark/internal/config.{type Config, type Expectation}
-import checkmark/internal/lines
 import checkmark/internal/parser
 import gleam/dict.{type Dict}
 import gleam/list
@@ -209,11 +209,11 @@ pub fn check(configuration: Configuration) -> Result(Nil, CheckErrors) {
           replacements,
           list.new(),
         )
-        use mismatches, Replacement(from_line:, tag:, ..) <- list.fold(
+        use mismatches, Replacement(at_line:, tag:, ..) <- list.fold(
           replacements,
           mismatches,
         )
-        [ContentMismatch(filename, from_line, tag), ..mismatches]
+        [ContentMismatch(filename, at_line, tag), ..mismatches]
       }
       Error(CheckErrors(mismatches, file_errors, errors))
     }
@@ -283,7 +283,7 @@ pub type FileReplacements {
     /// The file the replacements apply to.
     filename: String,
     /// The old lines in the file.
-    lines: List(String),
+    original_text: Text,
     /// The replacements that should be made in the file.
     replacements: List(Replacement),
   )
@@ -291,59 +291,17 @@ pub type FileReplacements {
 
 /// A single replacement within a file
 pub type Replacement {
-  Replacement(
-    from_line: Int,
-    to_line: Int,
-    tag: String,
-    new_lines: List(String),
-  )
+  Replacement(at_line: Int, line_count: Int, tag: String, text: Text)
 }
 
 fn render_file(replacements: FileReplacements) -> String {
-  let FileReplacements(lines:, replacements:, ..) = replacements
-  let replacements = {
-    use replacements, replacement <- list.fold(replacements, dict.new())
-    dict.insert(replacements, replacement.from_line, replacement)
-  }
-
-  let #(result, _) = {
-    use #(result, include_after), line, index <- list.index_fold(lines, #(
-      "",
-      None,
-    ))
-    case include_after {
-      // Not skipping old content, look for a replacement
-      None ->
-        case dict.get(replacements, index) {
-          Ok(Replacement(from_line:, to_line:, new_lines:, ..)) -> {
-            let result = list.fold(new_lines, result, string.append)
-            // Check if the replacement block is empty, or only a single line
-            case to_line - from_line {
-              // The block to replace is empty: we need to include the current line
-              // (which should be the end fence).
-              0 -> #(string.append(result, line), None)
-
-              // The block to replace was one line long, so we skip only this line.
-              1 -> #(result, None)
-
-              // Skip lines until the end of the block
-              _ -> #(result, Some(to_line - 1))
-            }
-          }
-
-          // Didn't find a replacement, add the current line
-          Error(Nil) -> #(string.append(result, line), None)
-        }
-
-      // We reached the last line, start including lines after this
-      Some(include_after) if include_after <= index -> #(result, None)
-
-      // There's still more to skip.
-      include_after -> #(result, include_after)
-    }
-  }
-
-  result
+  let text = replacements.original_text
+  let replacements =
+    list.map(replacements.replacements, fn(r) {
+      caret.ReplaceLines(r.at_line, r.line_count, r.text)
+    })
+  let assert Ok(new_text) = caret.apply_all(text, replacements)
+  caret.to_string(new_text)
 }
 
 /// Calculates the input files for the given configuration.
@@ -436,10 +394,10 @@ fn get_file_replacements(
     dict.get(inputs.input_files, filename)
     |> result.replace_error(Nil),
   )
-  let lines = lines.to_lines(inputs.splitter, content, [])
+  let text = caret.from_string(content)
   let code_blocks = {
     let search_in_comments = string.ends_with(filename, ".gleam")
-    parser.parse(lines, search_in_comments)
+    parser.parse(text, search_in_comments)
   }
 
   let #(replacements, errors) =
@@ -448,7 +406,7 @@ fn get_file_replacements(
     |> result.partition
 
   let errors = option.values(errors)
-  Ok(#(FileReplacements(filename, lines, replacements), errors))
+  Ok(#(FileReplacements(filename, text, replacements), errors))
 }
 
 fn create_replacement(
@@ -457,12 +415,14 @@ fn create_replacement(
   code_blocks: List(parser.CodeBlock),
   expectation: Expectation,
 ) -> Result(Replacement, Option(ContentError)) {
-  use new_lines <- result.try(case expectation {
+  use new_text <- result.try(case expectation {
     config.ContentsOfFile(filename:, ..) ->
       dict.get(inputs.input_files, filename)
       // Missing inputs are not reported ere
       |> result.replace_error(None)
-      |> result.map(lines.to_lines(inputs.splitter, _, []))
+      |> result.map(fn(content) {
+        caret.from_string(content) |> caret.without_trailing_newline
+      })
 
     config.CodeSegment(filename:, segment:, ..) ->
       dict.get(inputs.code_files, filename)
@@ -486,16 +446,11 @@ fn create_replacement(
     })
 
   case code_blocks {
-    [parser.ClodBlock(line_number:, lines:, prefix:, start_fence:, ..)] -> {
-      let line_count = list.length(lines)
+    [parser.CodeBlock(line_number:, text:, prefix:, start_fence:, ..)] -> {
+      let line_count = caret.line_count(text)
       let prefix = prefix <> string.repeat(" ", start_fence.indent)
-      let new_lines = list.map(new_lines, string.append(prefix, _))
-      Ok(Replacement(
-        line_number,
-        line_number + line_count,
-        start_fence.tag,
-        new_lines,
-      ))
+      let text = caret.map_lines(new_text, string.append(prefix, _))
+      Ok(Replacement(line_number, line_count, start_fence.tag, text))
     }
 
     [] -> Error(Some(TagNotFound(filename, expectation.tag)))
