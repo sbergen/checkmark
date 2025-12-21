@@ -1,12 +1,12 @@
 Here's some text.
 
-  ```update 
+  ```txt update 
    This snippet is out of date
  ````
 
 Here's some more text.
 
-``` not-replaced 
+```txt not-replaced 
 This should not be replaced.
 ```
 

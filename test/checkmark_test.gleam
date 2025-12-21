@@ -100,44 +100,44 @@ pub fn update_code_test() {
     file
     |> checkmark.should_contain_contents_of(
       "./test_assets/test_content.txt",
-      "gleam module",
+      "module",
     )
     |> checkmark.should_contain_contents_of(
       "./test_assets/test_content.txt",
-      "gleam value",
+      "value",
     )
   })
 }
 
-// pub fn update_from_snippets_test() {
-//   let snippets = "./test_assets/snippet_source.gleam"
-//   use config <- update_test("./test_assets/expected_snippets.md")
-// 
-//   config
-//   |> checkmark.document("./test_assets/snippets.md", fn(doc) {
-//     doc
-//     |> checkmark.should_contain_snippet_from(
-//       snippets,
-//       checkmark.function("main"),
-//       "function",
-//     )
-//     |> checkmark.should_contain_snippet_from(
-//       snippets,
-//       checkmark.function_body("main"),
-//       "function body",
-//     )
-//     |> checkmark.should_contain_snippet_from(
-//       snippets,
-//       checkmark.type_definition("Wibble"),
-//       "type",
-//     )
-//     |> checkmark.should_contain_snippet_from(
-//       snippets,
-//       checkmark.type_alias("Wobble"),
-//       "type alias",
-//     )
-//   })
-// }
+pub fn update_from_snippets_test() {
+  let snippets = "./test_assets/snippet_source.gleam"
+  use config <- update_test("./test_assets/expected_snippets.md")
+
+  config
+  |> checkmark.document("./test_assets/snippets.md", fn(doc) {
+    doc
+    |> checkmark.should_contain_snippet_from(
+      snippets,
+      checkmark.function("main"),
+      "function",
+    )
+    |> checkmark.should_contain_snippet_from(
+      snippets,
+      checkmark.function_body("main"),
+      "function body",
+    )
+    |> checkmark.should_contain_snippet_from(
+      snippets,
+      checkmark.type_definition("Wibble"),
+      "type",
+    )
+    |> checkmark.should_contain_snippet_from(
+      snippets,
+      checkmark.type_alias("Wobble"),
+      "type alias",
+    )
+  })
+}
 
 fn update_test(
   expected: String,

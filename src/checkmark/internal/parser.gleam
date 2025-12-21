@@ -13,7 +13,7 @@ pub type FencedCode {
 }
 
 pub type Fence {
-  Fence(fence: String, info: String, indent: Int)
+  Fence(fence: String, tag: String, indent: Int)
 }
 
 type Builder {
@@ -185,7 +185,22 @@ fn build_fence(
 
     _ -> {
       let fence = string.repeat(character, delimiters)
-      Fence(fence:, info: rest, indent:)
+      let tag = rest |> string.trim |> strip_frist_word(False)
+      Fence(fence:, tag:, indent:)
+    }
+  }
+}
+
+/// Strips the first word and whitespace from a string
+fn strip_frist_word(text: String, found_whitespace: Bool) -> String {
+  case text, found_whitespace {
+    "", _ -> text
+    " " <> rest, _ -> strip_frist_word(rest, True)
+    "\t" <> rest, _ -> strip_frist_word(rest, True)
+    _, True -> text
+    _, False -> {
+      let assert Ok(#(_, rest)) = string.pop_grapheme(text)
+      strip_frist_word(rest, False)
     }
   }
 }

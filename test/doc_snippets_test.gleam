@@ -1,6 +1,6 @@
-import checkmark
-import envoy
-import simplifile
+// import checkmark
+// import envoy
+// import simplifile
 // pub fn update_docs_test() {
 //   let checker = checkmark.new(simplifile.read, simplifile.write)
 // 

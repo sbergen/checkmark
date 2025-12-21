@@ -1,13 +1,13 @@
 Here's some text.
 
-  ```update 
+  ```txt update 
   test
   content
  ````
 
 Here's some more text.
 
-``` not-replaced 
+```txt not-replaced 
 This should not be replaced.
 ```
 

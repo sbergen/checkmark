@@ -445,8 +445,7 @@ fn create_replacement(
 
   let code_blocks =
     list.filter(code_blocks, fn(block) {
-      // TODO: Do trimming earlier
-      string.trim(block.start_fence.info) == expectation.tag
+      block.start_fence.tag == expectation.tag
     })
 
   case code_blocks {

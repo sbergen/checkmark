@@ -1,14 +1,14 @@
-```multiple
+```txt multiple
 test
 content
 ```
 
-~~~~ multiple
+~~~~ txt multiple
 test
 content
 ~~~~
 
-```single
+```txt single
 test
 content
 ```

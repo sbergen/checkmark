@@ -26,7 +26,7 @@ pub fn basic_snippet_test() {
   assert parser.parse(
       [
         "start\n",
-        "```gleam\n",
+        "```gleam tag \n",
         "code\r\n",
         "more_code\n",
         "``` \n",
@@ -42,8 +42,8 @@ pub fn basic_snippet_test() {
           "more_code\n",
         ],
         "",
-        Fence("```", "gleam\n", 0),
-        Some(Fence("```", " \n", 0)),
+        Fence("```", "tag", 0),
+        Some(Fence("```", "", 0)),
       ),
     ]
 }
@@ -54,7 +54,7 @@ pub fn doc_comment_test() {
         "pub const answer = 42\n",
         "\n",
         "/// start\n",
-        "/// ```gleam\n",
+        "/// ```gleam   tag \n",
         "/// code\r\n",
         "/// more_code\n",
         "/// ``` \n",
@@ -70,8 +70,8 @@ pub fn doc_comment_test() {
           "more_code\n",
         ],
         "/// ",
-        Fence("```", "gleam\n", 0),
-        Some(Fence("```", " \n", 0)),
+        Fence("```", "tag", 0),
+        Some(Fence("```", "", 0)),
       ),
     ]
 }
@@ -94,8 +94,8 @@ pub fn module_comment_test() {
           "code\n",
         ],
         "//// ",
-        Fence("```", "gleam\n", 0),
-        Some(Fence("```", " \n", 0)),
+        Fence("```", "", 0),
+        Some(Fence("```", "", 0)),
       ),
     ]
 }
@@ -104,7 +104,7 @@ pub fn unfinished_comment_block_test() {
   assert parser.parse(
       [
         "//// start\n",
-        "//// ```gleam\n",
+        "//// ```gleam tag\n",
         "//// code\n",
         "rest\n",
       ],
@@ -117,7 +117,7 @@ pub fn unfinished_comment_block_test() {
           "code\n",
         ],
         "//// ",
-        Fence("```", "gleam\n", 0),
+        Fence("```", "tag", 0),
         None,
       ),
     ]
@@ -126,7 +126,7 @@ pub fn unfinished_comment_block_test() {
 pub fn indented_snippet_test() {
   assert parser.parse(
       [
-        "   ```gleam\n",
+        "   ```gleam tag\n",
         "   code\n",
         "     more_code\n",
         " not indented enough\n",
@@ -143,8 +143,8 @@ pub fn indented_snippet_test() {
           "not indented enough\n",
         ],
         "",
-        Fence("```", "gleam\n", 3),
-        Some(Fence("```", "\n", 2)),
+        Fence("```", "tag", 3),
+        Some(Fence("```", "", 2)),
       ),
     ]
 }
@@ -169,8 +169,8 @@ pub fn non_matching_fences_test() {
           "code\n",
         ],
         "",
-        Fence("````", "\n", 0),
-        Some(Fence("````", "\n", 0)),
+        Fence("````", "", 0),
+        Some(Fence("````", "", 0)),
       ),
     ]
 }
@@ -183,12 +183,12 @@ pub fn missing_end_fence_test() {
       ],
       False,
     )
-    == [FencedCode(1, ["code\n"], "", Fence("```", "\n", 0), None)]
+    == [FencedCode(1, ["code\n"], "", Fence("```", "", 0), None)]
 }
 
 pub fn empty_fence_test() {
-  assert parser.parse(["```info\n"], False)
-    == [FencedCode(1, [], "", Fence("```", "info\n", 0), None)]
+  assert parser.parse(["```txt info\n"], False)
+    == [FencedCode(1, [], "", Fence("```", "info", 0), None)]
 }
 
 pub fn emtpy_line_preservation_test() {
@@ -216,8 +216,8 @@ pub fn emtpy_line_preservation_test() {
           "\n",
         ],
         "",
-        Fence("```", "\n", 0),
-        Some(Fence("```", "\n", 0)),
+        Fence("```", "", 0),
+        Some(Fence("```", "", 0)),
       ),
     ]
 }
