@@ -3,7 +3,6 @@ import gleam/option.{type Option, None, Some}
 import gleam/string
 
 pub type Section {
-  Other(line_number: Int, lines: List(String))
   FencedCode(
     line_number: Int,
     lines: List(String),
@@ -18,7 +17,6 @@ pub type Fence {
 }
 
 type SectionBuilder {
-  OtherBuilder(line_number: Int, lines: List(String))
   FencedCodeBuilder(
     line_number: Int,
     lines: List(String),
@@ -46,11 +44,6 @@ fn add_parts(builder: SectionBuilder, line: LineContent) {
   case builder {
     FencedCodeBuilder(..) ->
       FencedCodeBuilder(..builder, lines: [line.content, ..builder.lines])
-    OtherBuilder(..) ->
-      OtherBuilder(..builder, lines: [
-        to_string_with_prefix(line),
-        ..builder.lines
-      ])
   }
 }
 
@@ -64,9 +57,6 @@ fn to_section(builder: SectionBuilder, end_fence: Option(Fence)) {
         start_fence:,
         end_fence:,
       )
-
-    OtherBuilder(line_number:, lines:) ->
-      Other(line_number, list.reverse(lines))
   }
 }
 
@@ -89,20 +79,15 @@ fn parse_lines(
     // Line should NOT be included in code blocks, as it is not a comment
     True ->
       case current_builder {
-        None -> #(
-          sections,
-          Some(OtherBuilder(line_number, [to_string_with_prefix(line)])),
-        )
+        None -> #(sections, None)
+
         Some(builder) ->
           case builder {
             // End code block if comment ends
             FencedCodeBuilder(..) -> #(
               [to_section(builder, None), ..sections],
-              Some(OtherBuilder(line_number, [to_string_with_prefix(line)])),
+              None,
             )
-
-            // Otherwise add to current
-            OtherBuilder(..) -> #(sections, Some(add_parts(builder, line)))
           }
       }
 
@@ -112,10 +97,10 @@ fn parse_lines(
         // No fence, add to current, or start new builder:
         None -> {
           let current_section = case current_builder {
-            None -> OtherBuilder(line_number, [to_string_with_prefix(line)])
-            Some(builder) -> add_parts(builder, line)
+            None -> None
+            Some(builder) -> Some(add_parts(builder, line))
           }
-          #(sections, Some(current_section))
+          #(sections, current_section)
         }
 
         // Found fence:
@@ -124,17 +109,6 @@ fn parse_lines(
             // No current builder, start new fenced code:
             None -> #(
               sections,
-              Some(FencedCodeBuilder(
-                line_number,
-                [],
-                line.prefix,
-                current_fence,
-              )),
-            )
-
-            // Other content: finalize it, start new fenced code
-            Some(OtherBuilder(..) as other_builder) -> #(
-              [to_section(other_builder, None), ..sections],
               Some(FencedCodeBuilder(
                 line_number,
                 [],

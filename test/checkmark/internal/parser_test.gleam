@@ -1,4 +1,4 @@
-import checkmark/internal/parser.{Fence, FencedCode, Other}
+import checkmark/internal/parser.{Fence, FencedCode}
 import gleam/option.{None, Some}
 
 fn comment_agnostic(body: fn(Bool) -> Nil) -> Nil {
@@ -19,7 +19,7 @@ pub fn no_snippets_test() {
     "two\r\n",
     "three\n",
   ]
-  assert parser.parse(text, in_comments) == [parser.Other(1, text)]
+  assert parser.parse(text, in_comments) == []
 }
 
 pub fn basic_snippet_test() {
@@ -35,7 +35,6 @@ pub fn basic_snippet_test() {
       False,
     )
     == [
-      Other(1, ["start\n"]),
       FencedCode(
         2,
         [
@@ -46,7 +45,6 @@ pub fn basic_snippet_test() {
         Fence("```", "gleam\n", 0),
         Some(Fence("```", " \n", 0)),
       ),
-      Other(6, ["rest\n"]),
     ]
 }
 
@@ -65,11 +63,6 @@ pub fn doc_comment_test() {
       True,
     )
     == [
-      Other(1, [
-        "pub const answer = 42\n",
-        "\n",
-        "/// start\n",
-      ]),
       FencedCode(
         4,
         [
@@ -80,7 +73,6 @@ pub fn doc_comment_test() {
         Fence("```", "gleam\n", 0),
         Some(Fence("```", " \n", 0)),
       ),
-      Other(8, ["pub const answer_str = \"*\"\n"]),
     ]
 }
 
@@ -96,9 +88,6 @@ pub fn module_comment_test() {
       True,
     )
     == [
-      Other(1, [
-        "//// start\n",
-      ]),
       FencedCode(
         2,
         [
@@ -108,7 +97,6 @@ pub fn module_comment_test() {
         Fence("```", "gleam\n", 0),
         Some(Fence("```", " \n", 0)),
       ),
-      Other(5, ["//// rest\n"]),
     ]
 }
 
@@ -123,9 +111,6 @@ pub fn unfinished_comment_block_test() {
       True,
     )
     == [
-      Other(1, [
-        "//// start\n",
-      ]),
       FencedCode(
         2,
         [
@@ -135,7 +120,6 @@ pub fn unfinished_comment_block_test() {
         Fence("```", "gleam\n", 0),
         None,
       ),
-      Other(4, ["rest\n"]),
     ]
 }
 
@@ -224,11 +208,6 @@ pub fn emtpy_line_preservation_test() {
       False,
     )
     == [
-      Other(1, [
-        "\n",
-        "text\n",
-        "\n",
-      ]),
       FencedCode(
         4,
         [
@@ -240,9 +219,5 @@ pub fn emtpy_line_preservation_test() {
         Fence("```", "\n", 0),
         Some(Fence("```", "\n", 0)),
       ),
-      Other(9, [
-        "\n",
-        "\n",
-      ]),
     ]
 }
