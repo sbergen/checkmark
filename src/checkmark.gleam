@@ -29,8 +29,13 @@ pub fn parse_configuration(
   |> result.map(Configuration)
 }
 
+pub type ContentMismatch {
+  ContentMismatch(filename: String, line: Int, tag: String)
+}
+
 pub type CheckErrors {
   CheckErrors(
+    content_mismatches: List(ContentMismatch),
     file_errors: List(#(String, simplifile.FileError)),
     content_errors: List(ContentError),
   )
@@ -97,7 +102,8 @@ pub fn document(
   filename: String,
   configure: fn(ExpectationBuilder) -> ExpectationBuilder,
 ) -> Configuration {
-  // TODO: Check if file is already configured?
+  // TODO: Merge configurations, if already configured!
+  // TODO: Also do this in the parsed config!
   let builder = configure(ExpectationBuilder(filename, list.new()))
   Configuration(expectations: dict.insert(
     configuration.expectations,
@@ -197,7 +203,20 @@ pub fn check(configuration: Configuration) -> Result(Nil, CheckErrors) {
     // TODO: Check that replacement is needed when building them
     #([], [], []) -> Ok(Nil)
 
-    #(_, file_errors, errors) -> Error(CheckErrors(file_errors, errors))
+    #(replacements, file_errors, errors) -> {
+      let mismatches = {
+        use mismatches, FileReplacements(replacements:, filename:, ..) <- list.fold(
+          replacements,
+          list.new(),
+        )
+        use mismatches, Replacement(from_line:, tag:, ..) <- list.fold(
+          replacements,
+          mismatches,
+        )
+        [ContentMismatch(filename, from_line, tag), ..mismatches]
+      }
+      Error(CheckErrors(mismatches, file_errors, errors))
+    }
   }
 }
 
@@ -229,7 +248,7 @@ pub fn update_with_writer(
 
   case errors, file_errors {
     [], [] -> Ok(Nil)
-    _, _ -> Error(CheckErrors(file_errors, errors))
+    _, _ -> Error(CheckErrors([], file_errors, errors))
   }
 }
 
@@ -272,7 +291,12 @@ pub type FileReplacements {
 
 /// A single replacement within a file
 pub type Replacement {
-  Replacement(from_line: Int, to_line: Int, new_lines: List(String))
+  Replacement(
+    from_line: Int,
+    to_line: Int,
+    tag: String,
+    new_lines: List(String),
+  )
 }
 
 fn render_file(replacements: FileReplacements) -> String {
@@ -291,7 +315,7 @@ fn render_file(replacements: FileReplacements) -> String {
       // Not skipping old content, look for a replacement
       None ->
         case dict.get(replacements, index) {
-          Ok(Replacement(from_line:, to_line:, new_lines:)) -> {
+          Ok(Replacement(from_line:, to_line:, new_lines:, ..)) -> {
             let result = list.fold(new_lines, result, string.append)
             // Check if the replacement block is empty, or only a single line
             case to_line - from_line {
@@ -315,7 +339,7 @@ fn render_file(replacements: FileReplacements) -> String {
       Some(include_after) if include_after <= index -> #(result, None)
 
       // There's still more to skip.
-      skip_until -> #(result, skip_until)
+      include_after -> #(result, include_after)
     }
   }
 
@@ -466,7 +490,12 @@ fn create_replacement(
       let line_count = list.length(lines)
       let prefix = prefix <> string.repeat(" ", start_fence.indent)
       let new_lines = list.map(new_lines, string.append(prefix, _))
-      Ok(Replacement(line_number, line_number + line_count, new_lines))
+      Ok(Replacement(
+        line_number,
+        line_number + line_count,
+        start_fence.tag,
+        new_lines,
+      ))
     }
 
     [] -> Error(Some(TagNotFound(filename, expectation.tag)))

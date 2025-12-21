@@ -21,16 +21,23 @@ pub fn check_existing_file_test() {
       )
       |> checkmark.should_contain_contents_of(
         "./test_assets/test_content.txt",
-        tagged: "single",
+        tagged: "not_present",
       )
       |> checkmark.should_contain_contents_of(
         "./test_assets/test_content.txt",
-        tagged: "not_present",
+        tagged: "ok",
+      )
+      |> checkmark.should_contain_contents_of(
+        "./test_assets/test_content.txt",
+        tagged: "error",
       )
     })
     |> checkmark.check()
 
   assert errors.file_errors == []
+  // TODO: Fix this!
+  //assert errors.content_mismatches
+  //  == [ContentMismatch("test_assets/test.md", 16, "error")]
   assert errors.content_errors
     == [
       MultipleTagsFound("test_assets/test.md", "multiple", [1, 6]),
@@ -46,6 +53,7 @@ pub fn check_missing_markdown_file_test() {
 
   assert errors.file_errors
     == [#("this-file-does-not-exist", simplifile.Enoent)]
+  assert errors.content_errors == []
 }
 
 pub fn check_missing_source_file_test() {

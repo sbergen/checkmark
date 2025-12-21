@@ -8,7 +8,13 @@ test
 content
 ~~~~
 
-```txt single
+```txt ok
+test
+content
+```
+
+```txt error
+not
 test
 content
 ```
