@@ -1,4 +1,5 @@
 import gleam/bool
+import gleam/result
 import iv.{type Array}
 import splitter.{type Splitter}
 
@@ -55,14 +56,52 @@ fn get_lines(
   }
 }
 
+pub fn to_string(text: Text) -> String {
+  let line_ending = line_ending_string(text.line_ending)
+
+  // TODO: See if this needs optimization
+  use result, line, i <- iv.index_fold(text.lines, "")
+  case i {
+    0 -> result <> line
+    _ -> result <> line_ending <> line
+  }
+}
+
+/// Returns the number lines in the text.
 pub fn line_count(text: Text) -> Int {
   iv.length(text.lines)
 }
 
+/// Returns a single line from the text, or an error if out of range.
+/// Note that lines are 0-indexed.
 pub fn line(text: Text, index: Int) -> Result(String, Nil) {
   iv.get(text.lines, index)
 }
 
+/// Returns the line ending used in the text.
 pub fn line_ending(text: Text) -> LineEnding {
   text.line_ending
+}
+
+pub fn slice_lines(text: Text, from: Int, count: Int) -> Result(Text, Nil) {
+  iv.slice(text.lines, from, count)
+  |> result.map(Text(_, text.line_ending))
+}
+
+fn line_ending_string(ending: LineEnding) -> String {
+  case ending {
+    Lf -> "\n"
+    CrLf -> "\r\n"
+  }
+}
+
+/// Replaces the lines
+pub fn replace_lines(
+  text: Text,
+  at index: Int,
+  replace count: Int,
+  with replacement: Text,
+) -> Result(Text, Nil) {
+  iv.replace(text.lines, index, count, replacement.lines)
+  |> result.map(Text(_, text.line_ending))
 }

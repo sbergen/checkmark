@@ -67,3 +67,53 @@ Second"
   assert caret.line(text, 2) == Ok("Second")
   assert caret.line(text, 3) == Error(Nil)
 }
+
+pub fn to_string_with_trailing_newline_test() {
+  let content = "1\n2\n3\n4\n"
+  assert caret.from_string(content) |> caret.to_string == content
+}
+
+pub fn to_string_without_trailing_newline_test() {
+  let content = "123"
+  assert caret.from_string(content) |> caret.to_string == content
+}
+
+pub fn slice_lines_basic_test() {
+  let assert Ok(slice) =
+    caret.from_string("1\n2\n3\n4")
+    |> caret.slice_lines(1, 2)
+
+  caret.to_string(slice) == "2\n3"
+}
+
+pub fn slice_lines_negative_test() {
+  let assert Ok(slice) =
+    caret.from_string("1\n2\n3\n4")
+    |> caret.slice_lines(1, -1)
+
+  caret.to_string(slice) == "1\n2"
+}
+
+pub fn slice_lines_zero_test() {
+  let assert Ok(slice) =
+    caret.from_string("1\n2\n3\n4")
+    |> caret.slice_lines(1, 0)
+
+  caret.to_string(slice) == ""
+}
+
+pub fn slice_lines_error_test() {
+  let text = caret.from_string("1\n2\n3\n4")
+  assert caret.slice_lines(text, 0, 10) == Error(Nil)
+  assert caret.slice_lines(text, 10, 1) == Error(Nil)
+}
+
+pub fn replace_lines_test() {
+  let text = caret.from_string("1\n2\n3\n4")
+  let replacement = caret.from_string("Two\nThree")
+
+  let assert Ok(replaced) =
+    caret.replace_lines(text, at: 1, replace: 2, with: replacement)
+
+  assert caret.to_string(replaced) == "1\nTwo\nThree\n4"
+}
