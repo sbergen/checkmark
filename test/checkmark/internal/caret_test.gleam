@@ -257,3 +257,10 @@ pub fn apply_all_error_test() {
     ])
     == Error(Nil)
 }
+
+pub fn map_lines_test() {
+  assert caret.from_string("1\n2\n3")
+    |> caret.map_lines(fn(l) { l <> l })
+    |> caret.to_string
+    == "11\n22\n33"
+}

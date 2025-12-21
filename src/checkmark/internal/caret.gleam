@@ -204,6 +204,10 @@ fn unindent_line(
   }
 }
 
+pub fn map_lines(text: Text, with: fn(String) -> String) -> Text {
+  with_lines(text, iv.map(text.lines, with))
+}
+
 pub fn fold_lines(
   over text: Text,
   from state: state,
