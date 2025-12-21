@@ -94,9 +94,9 @@ fn to_block(
 ) {
   let Builder(line_number:, start_fence:, prefix:) = builder
   let line_count = next_line_number - line_number
-  // TODO: is this assert ok?
-  let assert Ok(text) = caret.slice_lines(full_text, line_number, line_count)
-  let text = caret.map_lines(text, string.drop_start(_, string.length(prefix)))
+  let text =
+    caret.slice_lines_clamped(full_text, line_number, line_count)
+    |> caret.map_lines(string.drop_start(_, string.length(prefix)))
   CodeBlock(
     line_number,
     text |> caret.with_tab_stop_width(1) |> caret.unindent(start_fence.indent),

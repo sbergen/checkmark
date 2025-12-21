@@ -84,6 +84,14 @@ pub fn with_tab_stop_width(text: Text, tab_stop: Int) {
   Text(..text, tab_stop:)
 }
 
+/// Checks whether two texts have the same line content.
+/// Ignores line ending type and tab stop width.
+/// Note that in general, structural equality on a `Text` instance
+/// might not return the correct result, due to using `iv` under the hood.
+pub fn lines_equal(a: Text, b: Text) -> Bool {
+  iv.equal(a.lines, b.lines)
+}
+
 /// Returns the number lines in the text.
 pub fn line_count(text: Text) -> Int {
   iv.length(text.lines)
@@ -103,6 +111,11 @@ pub fn line_ending(text: Text) -> LineEnding {
 pub fn slice_lines(text: Text, from: Int, count: Int) -> Result(Text, Nil) {
   iv.slice(text.lines, from, count)
   |> result.map(with_lines(text, _))
+}
+
+pub fn slice_lines_clamped(text: Text, from: Int, count: Int) -> Text {
+  iv.slice_clamped(text.lines, from, count)
+  |> with_lines(text, _)
 }
 
 fn line_ending_string(ending: LineEnding) -> String {

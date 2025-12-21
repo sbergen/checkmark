@@ -71,6 +71,19 @@ Second"
   assert caret.line(text, 3) == Error(Nil)
 }
 
+pub fn lines_equal_test() {
+  assert caret.lines_equal(caret.from_string(""), caret.from_string("")) == True
+  assert caret.lines_equal(caret.from_string("\n"), caret.from_string("\r\n"))
+    == True
+  assert caret.lines_equal(caret.from_string("a"), caret.from_string("b"))
+    == False
+  assert caret.lines_equal(
+      caret.from_string("a\nb"),
+      caret.from_string("a\nb\nc"),
+    )
+    == False
+}
+
 pub fn to_string_with_trailing_newline_test() {
   let content = "1\n2\n3\n4\n"
   assert caret.from_string(content) |> caret.to_string == content
@@ -109,6 +122,13 @@ pub fn slice_lines_error_test() {
   let text = caret.from_string("1\n2\n3\n4")
   assert caret.slice_lines(text, 0, 10) == Error(Nil)
   assert caret.slice_lines(text, 10, 1) == Error(Nil)
+}
+
+pub fn slice_lines_clamped_test() {
+  assert caret.from_string("1\n2\n3\n4")
+    |> caret.slice_lines_clamped(2, 10)
+    |> caret.to_string
+    == "3\n4"
 }
 
 pub fn replace_lines_test() {

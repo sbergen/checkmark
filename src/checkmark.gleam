@@ -11,7 +11,6 @@ import gleam/result
 import gleam/set.{type Set}
 import gleam/string
 import simplifile
-import splitter
 
 /// The configuration to use to check or update files
 pub opaque type Configuration {
@@ -36,9 +35,19 @@ pub type ContentMismatch {
 pub type CheckErrors {
   CheckErrors(
     content_mismatches: List(ContentMismatch),
-    file_errors: List(#(String, simplifile.FileError)),
+    file_errors: List(FileError),
     content_errors: List(ContentError),
   )
+}
+
+pub type FileError {
+  /// Reading a file from the file system failed
+  CouldNotReadFile(filename: String, error: simplifile.FileError)
+  /// Writing a file to the file system failed
+  CouldNotWriteFile(filename: String, error: simplifile.FileError)
+  /// Rendering the replacements of a file failed.
+  /// This is likely an internal checkmark error!
+  CouldNotRenderFile(filename: String)
 }
 
 /// An error indicating that the content in the files or in the configuration
@@ -238,9 +247,12 @@ pub fn update_with_writer(
 
   let results = {
     use replacement <- list.map(replacements)
-    let new_content = render_file(replacement)
-    write(replacement.filename, new_content)
-    |> result.map_error(fn(e) { #(replacement.filename, e) })
+    render_file(replacement)
+    |> result.replace_error(CouldNotRenderFile(replacement.filename))
+    |> result.try(fn(content) {
+      write(replacement.filename, content)
+      |> result.map_error(fn(e) { CouldNotWriteFile(replacement.filename, e) })
+    })
   }
 
   let #(_, new_errors) = result.partition(results)
@@ -254,11 +266,8 @@ pub fn update_with_writer(
 
 fn get_replacements_from_files(
   configuration: Configuration,
-) -> #(
-  List(FileReplacements),
-  List(#(String, simplifile.FileError)),
-  List(ContentError),
-) {
+) -> #(List(FileReplacements), List(FileError), List(ContentError)) {
+  // Read inputs, accumulate any errors
   let #(inputs, file_errors) = {
     use #(inputs, errors), filename <- set.fold(
       input_files(configuration.expectations),
@@ -267,10 +276,11 @@ fn get_replacements_from_files(
 
     case simplifile.read(filename) {
       Ok(contents) -> #(dict.insert(inputs, filename, contents), errors)
-      Error(e) -> #(inputs, [#(filename, e), ..errors])
+      Error(e) -> #(inputs, [CouldNotReadFile(filename, e), ..errors])
     }
   }
 
+  // Then do the real work with the inputs
   let #(replacements, errors) =
     get_replacements(configuration.expectations, inputs)
 
@@ -294,14 +304,15 @@ pub type Replacement {
   Replacement(at_line: Int, line_count: Int, tag: String, text: Text)
 }
 
-fn render_file(replacements: FileReplacements) -> String {
+fn render_file(replacements: FileReplacements) -> Result(String, Nil) {
   let text = replacements.original_text
   let replacements =
     list.map(replacements.replacements, fn(r) {
       caret.ReplaceLines(r.at_line, r.line_count, r.text)
     })
-  let assert Ok(new_text) = caret.apply_all(text, replacements)
-  caret.to_string(new_text)
+
+  caret.apply_all(text, replacements)
+  |> result.map(caret.to_string)
 }
 
 /// Calculates the input files for the given configuration.
@@ -313,13 +324,13 @@ pub fn input_files(config: Config) -> Set(String) {
   set.insert(inputs, expectation.filename)
 }
 
+/// Given inputs, get all the replacements we can.
 pub fn get_replacements(
   config: Config,
   inputs: Dict(String, String),
 ) -> #(List(FileReplacements), List(ContentError)) {
   let #(code_files, errors) = load_code_files(config, inputs)
-  let splitter = splitter.new(["\n", "\r\n"])
-  let inputs = ReplaceInputs(splitter, inputs, code_files)
+  let inputs = ReplaceInputs(inputs, code_files)
 
   let results = {
     use results, filename, expectations <- dict.fold(config, list.new())
@@ -341,8 +352,6 @@ pub fn get_replacements(
 
 type ReplaceInputs {
   ReplaceInputs(
-    /// Splitter to be reused
-    splitter: splitter.Splitter,
     /// Contents of input files
     input_files: Dict(String, String),
     /// Parsed Gleam files (we parse them only once)
@@ -390,20 +399,33 @@ fn get_file_replacements(
   filename: String,
   expectations: List(Expectation),
 ) -> Result(#(FileReplacements, List(ContentError)), Nil) {
-  use content <- result.try(
-    dict.get(inputs.input_files, filename)
-    |> result.replace_error(Nil),
-  )
+  // Load the target as Text
+  use content <- result.try(dict.get(inputs.input_files, filename))
   let text = caret.from_string(content)
+
+  // Load all code blocks, depending on the file type
   let code_blocks = {
     let search_in_comments = string.ends_with(filename, ".gleam")
     parser.parse(text, search_in_comments)
   }
 
+  // Get all replacements and errors, without checking for matches.
   let #(replacements, errors) =
     expectations
     |> list.map(create_replacement(inputs, filename, code_blocks, _))
     |> result.partition
+
+  // Filter out already matching blocks
+  let replacements = {
+    use replacement <- list.filter(replacements)
+    let existing_slice =
+      caret.slice_lines_clamped(
+        text,
+        replacement.at_line,
+        replacement.line_count,
+      )
+    !caret.lines_equal(existing_slice, replacement.text)
+  }
 
   let errors = option.values(errors)
   Ok(#(FileReplacements(filename, text, replacements), errors))

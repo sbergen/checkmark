@@ -1,5 +1,6 @@
 import checkmark.{
-  type Configuration, CouldNotParseSnippetSource, MultipleTagsFound, TagNotFound,
+  type Configuration, ContentMismatch, CouldNotParseSnippetSource,
+  CouldNotReadFile, MultipleTagsFound, TagNotFound,
 }
 
 import gleam/erlang/process
@@ -35,9 +36,8 @@ pub fn check_existing_file_test() {
     |> checkmark.check()
 
   assert errors.file_errors == []
-  // TODO: Fix this!
-  //assert errors.content_mismatches
-  //  == [ContentMismatch("test_assets/test.md", 16, "error")]
+  assert errors.content_mismatches
+    == [ContentMismatch("test_assets/test.md", 16, "error")]
   assert errors.content_errors
     == [
       MultipleTagsFound("test_assets/test.md", "multiple", [1, 6]),
@@ -52,7 +52,7 @@ pub fn check_missing_markdown_file_test() {
     |> checkmark.check()
 
   assert errors.file_errors
-    == [#("this-file-does-not-exist", simplifile.Enoent)]
+    == [CouldNotReadFile("this-file-does-not-exist", simplifile.Enoent)]
   assert errors.content_errors == []
 }
 
@@ -66,7 +66,7 @@ pub fn check_missing_source_file_test() {
     |> checkmark.check()
 
   assert errors.file_errors
-    == [#("this-file-does-not-exist", simplifile.Enoent)]
+    == [CouldNotReadFile("this-file-does-not-exist", simplifile.Enoent)]
 }
 
 pub fn invalid_snippet_source_test() {
