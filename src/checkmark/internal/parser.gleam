@@ -2,7 +2,7 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 
-pub type Section {
+pub type FencedCode {
   FencedCode(
     line_number: Int,
     lines: List(String),
@@ -16,8 +16,8 @@ pub type Fence {
   Fence(fence: String, info: String, indent: Int)
 }
 
-type SectionBuilder {
-  FencedCodeBuilder(
+type Builder {
+  Builder(
     line_number: Int,
     lines: List(String),
     prefix: String,
@@ -29,45 +29,36 @@ type LineContent {
   LineContent(prefix: String, content: String)
 }
 
-fn to_string_with_prefix(line: LineContent) -> String {
-  line.prefix <> line.content
-}
-
-pub fn parse(lines: List(String), search_in_comments: Bool) -> List(Section) {
+pub fn parse(lines: List(String), search_in_comments: Bool) -> List(FencedCode) {
   case lines {
     [first, ..rest] -> parse_lines(search_in_comments, 1, [], None, first, rest)
     [] -> []
   }
 }
 
-fn add_parts(builder: SectionBuilder, line: LineContent) {
-  case builder {
-    FencedCodeBuilder(..) ->
-      FencedCodeBuilder(..builder, lines: [line.content, ..builder.lines])
-  }
+fn add_parts(builder: Builder, line: LineContent) -> Builder {
+  Builder(..builder, lines: [line.content, ..builder.lines])
 }
 
-fn to_section(builder: SectionBuilder, end_fence: Option(Fence)) {
-  case builder {
-    FencedCodeBuilder(line_number:, lines:, start_fence:, prefix:) ->
-      FencedCode(
-        line_number,
-        strip_indent(lines, start_fence.indent) |> list.reverse(),
-        prefix:,
-        start_fence:,
-        end_fence:,
-      )
-  }
+fn to_section(builder: Builder, end_fence: Option(Fence)) {
+  let Builder(line_number:, lines:, start_fence:, prefix:) = builder
+  FencedCode(
+    line_number,
+    strip_indent(lines, start_fence.indent) |> list.reverse(),
+    prefix:,
+    start_fence:,
+    end_fence:,
+  )
 }
 
 fn parse_lines(
   search_in_comments: Bool,
   line_number: Int,
-  sections: List(Section),
-  current_builder: Option(SectionBuilder),
+  sections: List(FencedCode),
+  current_builder: Option(Builder),
   line: String,
   rest: List(String),
-) -> List(Section) {
+) -> List(FencedCode) {
   let #(prefix, line, is_comment) = case search_in_comments {
     True -> parse_comment(line)
     False -> #("", line, False)
@@ -75,57 +66,38 @@ fn parse_lines(
   let line = LineContent(prefix, line)
 
   // Check special cases for comments
-  let #(sections, current_section) = case search_in_comments && !is_comment {
+  let #(sections, current_builder) = case search_in_comments && !is_comment {
     // Line should NOT be included in code blocks, as it is not a comment
     True ->
       case current_builder {
+        Some(builder) -> #([to_section(builder, None), ..sections], None)
         None -> #(sections, None)
-
-        Some(builder) ->
-          case builder {
-            // End code block if comment ends
-            FencedCodeBuilder(..) -> #(
-              [to_section(builder, None), ..sections],
-              None,
-            )
-          }
       }
 
     // Otherwise follow normal parsing
     False ->
       case parse_fence(line) {
-        // No fence, add to current, or start new builder:
-        None -> {
-          let current_section = case current_builder {
-            None -> None
-            Some(builder) -> Some(add_parts(builder, line))
-          }
-          #(sections, current_section)
-        }
+        // No fence, add to current if building:
+        None -> #(sections, option.map(current_builder, add_parts(_, line)))
 
         // Found fence:
-        Some(current_fence) -> {
+        Some(new_fence) -> {
           case current_builder {
-            // No current builder, start new fenced code:
+            // No current builder, start new:
             None -> #(
               sections,
-              Some(FencedCodeBuilder(
-                line_number,
-                [],
-                line.prefix,
-                current_fence,
-              )),
+              Some(Builder(line_number, [], line.prefix, new_fence)),
             )
 
             // Fenced code, check if it should be closed or not:
-            Some(FencedCodeBuilder(start_fence:, ..) as fence_builder) ->
-              case should_close(start_fence, current_fence) {
+            Some(Builder(start_fence:, ..) as builder) ->
+              case should_close(start_fence, new_fence) {
                 True -> #(
-                  [to_section(fence_builder, Some(current_fence)), ..sections],
+                  [to_section(builder, Some(new_fence)), ..sections],
                   None,
                 )
 
-                False -> #(sections, Some(add_parts(fence_builder, line)))
+                False -> #(sections, Some(add_parts(builder, line)))
               }
           }
         }
@@ -135,7 +107,7 @@ fn parse_lines(
   case rest {
     // Nothing left, finalize the current builder, if any:
     [] -> {
-      let sections = case current_section {
+      let sections = case current_builder {
         None -> sections
         Some(builder) -> [to_section(builder, None), ..sections]
       }
@@ -148,7 +120,7 @@ fn parse_lines(
         search_in_comments,
         line_number + 1,
         sections,
-        current_section,
+        current_builder,
         next_line,
         rest,
       )

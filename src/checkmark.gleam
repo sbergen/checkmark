@@ -400,14 +400,14 @@ fn get_file_replacements(
     |> result.replace_error(Nil),
   )
   let lines = lines.to_lines(inputs.splitter, content, [])
-  let sections = {
+  let code_blocks = {
     let search_in_comments = string.ends_with(filename, ".gleam")
     parser.parse(lines, search_in_comments)
   }
 
   let #(replacements, errors) =
     expectations
-    |> list.map(create_replacement(inputs, filename, sections, _))
+    |> list.map(create_replacement(inputs, filename, code_blocks, _))
     |> result.partition
 
   let errors = option.values(errors)
@@ -417,7 +417,7 @@ fn get_file_replacements(
 fn create_replacement(
   inputs: ReplaceInputs,
   filename: String,
-  sections: List(parser.Section),
+  code_blocks: List(parser.FencedCode),
   expectation: Expectation,
 ) -> Result(Replacement, Option(ContentError)) {
   use new_lines <- result.try(case expectation {
@@ -443,16 +443,13 @@ fn create_replacement(
       })
   })
 
-  let sections =
-    list.filter(sections, fn(section) {
-      case section {
-        parser.FencedCode(start_fence: fence, ..) ->
-          string.trim(fence.info) == expectation.tag
-        _ -> False
-      }
+  let code_blocks =
+    list.filter(code_blocks, fn(block) {
+      // TODO: Do trimming earlier
+      string.trim(block.start_fence.info) == expectation.tag
     })
 
-  case sections {
+  case code_blocks {
     [parser.FencedCode(line_number:, lines:, prefix:, start_fence:, ..)] -> {
       let line_count = list.length(lines)
       let prefix = prefix <> string.repeat(" ", start_fence.indent)
@@ -462,8 +459,8 @@ fn create_replacement(
 
     [] -> Error(Some(TagNotFound(filename, expectation.tag)))
 
-    sections -> {
-      let lines = list.map(sections, fn(section) { section.line_number })
+    code_blocks -> {
+      let lines = list.map(code_blocks, fn(section) { section.line_number })
       Error(Some(MultipleTagsFound(filename, expectation.tag, lines)))
     }
   }
