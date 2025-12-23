@@ -2,6 +2,7 @@ import checkmark.{
   type Configuration, ContentMismatch, CouldNotParseSnippetSource,
   CouldNotReadFile, MultipleTagsFound, TagNotFound,
 }
+import gleam/set
 
 import gleam/erlang/process
 import gleeunit
@@ -84,6 +85,40 @@ pub fn invalid_snippet_source_test() {
 
   assert errors.content_errors
     == [CouldNotParseSnippetSource("./test_assets/test.md")]
+}
+
+pub fn input_files_test() {
+  let config =
+    checkmark.new()
+    |> checkmark.document("target1.md", fn(doc) {
+      doc
+      |> checkmark.should_contain_contents_of("source1.md", "1")
+      |> checkmark.should_contain_snippet_from(
+        "source2.gleam",
+        checkmark.function("wibble"),
+        tagged: "2",
+      )
+    })
+    |> checkmark.document("target2.md", fn(doc) {
+      doc
+      |> checkmark.should_contain_contents_of("source3.md", "3")
+    })
+
+  assert checkmark.input_files(config)
+    == set.from_list([
+      "source1.md",
+      "source2.gleam",
+      "source3.md",
+      "target1.md",
+      "target2.md",
+    ])
+
+  assert checkmark.source_files(config)
+    == set.from_list([
+      "source1.md",
+      "source2.gleam",
+      "source3.md",
+    ])
 }
 
 pub fn update_markdown_test() {

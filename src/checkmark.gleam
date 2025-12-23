@@ -2,7 +2,7 @@
 
 import checkmark/internal/caret.{type Text}
 import checkmark/internal/code_extractor
-import checkmark/internal/config.{type Config, type Expectation}
+import checkmark/internal/config.{type Expectation}
 import checkmark/internal/parser
 import gleam/dict.{type Dict}
 import gleam/list
@@ -269,10 +269,10 @@ fn get_replacements_from_files(
 ) -> #(List(FileReplacements), List(FileError), List(ContentError)) {
   // Read inputs, accumulate any errors
   let #(inputs, file_errors) = {
-    use #(inputs, errors), filename <- set.fold(
-      input_files(configuration.expectations),
-      #(dict.new(), list.new()),
-    )
+    use #(inputs, errors), filename <- set.fold(input_files(configuration), #(
+      dict.new(),
+      list.new(),
+    ))
 
     case simplifile.read(filename) {
       Ok(contents) -> #(dict.insert(inputs, filename, contents), errors)
@@ -281,8 +281,7 @@ fn get_replacements_from_files(
   }
 
   // Then do the real work with the inputs
-  let #(replacements, errors) =
-    get_replacements(configuration.expectations, inputs)
+  let #(replacements, errors) = get_replacements(configuration, inputs)
 
   #(replacements, file_errors, errors)
 }
@@ -316,24 +315,42 @@ fn render_file(replacements: FileReplacements) -> Result(String, Nil) {
 }
 
 /// Calculates the input files for the given configuration.
-pub fn input_files(config: Config) -> Set(String) {
-  use inputs, filename, expectations <- dict.fold(config, set.new())
+/// This includes both sources and targets,
+/// as we need to compare the existing content.
+pub fn input_files(config: Configuration) -> Set(String) {
+  use inputs, filename, expectations <- dict.fold(
+    config.expectations,
+    set.new(),
+  )
   let inputs = set.insert(inputs, filename)
 
   use inputs, expectation <- list.fold(expectations, inputs)
   set.insert(inputs, expectation.filename)
 }
 
+/// Returns all the sources for all the targets in the configuration.
+pub fn source_files(config: Configuration) -> Set(String) {
+  use inputs, _filename, expectations <- dict.fold(
+    config.expectations,
+    set.new(),
+  )
+  use inputs, expectation <- list.fold(expectations, inputs)
+  set.insert(inputs, expectation.filename)
+}
+
 /// Given inputs, get all the replacements we can.
 pub fn get_replacements(
-  config: Config,
+  config: Configuration,
   inputs: Dict(String, String),
 ) -> #(List(FileReplacements), List(ContentError)) {
   let #(code_files, errors) = load_code_files(config, inputs)
   let inputs = ReplaceInputs(inputs, code_files)
 
   let results = {
-    use results, filename, expectations <- dict.fold(config, list.new())
+    use results, filename, expectations <- dict.fold(
+      config.expectations,
+      list.new(),
+    )
     [get_file_replacements(inputs, filename, expectations), ..results]
   }
 
@@ -361,7 +378,7 @@ type ReplaceInputs {
 
 /// Loads snippet sources. Ignores missing inputs.
 fn load_code_files(
-  config: Config,
+  config: Configuration,
   inputs: Dict(String, String),
 ) -> #(Dict(String, code_extractor.File), List(ContentError)) {
   use #(code_files, errors), filename <- set.fold(snippet_files(config), #(
@@ -382,8 +399,11 @@ fn load_code_files(
   }
 }
 
-fn snippet_files(config: Config) -> Set(String) {
-  use result, _filename, expectations <- dict.fold(config, set.new())
+fn snippet_files(config: Configuration) -> Set(String) {
+  use result, _filename, expectations <- dict.fold(
+    config.expectations,
+    set.new(),
+  )
   use result, expectation <- list.fold(expectations, result)
 
   case expectation {
@@ -401,12 +421,12 @@ fn get_file_replacements(
 ) -> Result(#(FileReplacements, List(ContentError)), Nil) {
   // Load the target as Text
   use content <- result.try(dict.get(inputs.input_files, filename))
-  let text = caret.from_string(content)
+  let old_text = caret.from_string(content)
 
   // Load all code blocks, depending on the file type
   let code_blocks = {
     let search_in_comments = string.ends_with(filename, ".gleam")
-    parser.parse(text, search_in_comments)
+    parser.parse(old_text, search_in_comments)
   }
 
   // Get all replacements and errors, without checking for matches.
@@ -420,12 +440,13 @@ fn get_file_replacements(
     use Replacement(text:, at_line:, line_count:, ..) <- list.filter(
       replacements,
     )
-    let existing_slice = caret.slice_lines_clamped(text, at_line, line_count)
+    let existing_slice =
+      caret.slice_lines_clamped(old_text, at_line, line_count)
     !caret.lines_equal(existing_slice, text)
   }
 
   let errors = option.values(errors)
-  Ok(#(FileReplacements(filename, text, replacements), errors))
+  Ok(#(FileReplacements(filename, old_text, replacements), errors))
 }
 
 fn create_replacement(

@@ -94,7 +94,7 @@ pub fn lines_equal(a: Text, b: Text) -> Bool {
 
 /// Returns the number lines in the text.
 pub fn line_count(text: Text) -> Int {
-  iv.length(text.lines)
+  iv.size(text.lines)
 }
 
 /// Returns a single line from the text, or an error if out of range.
@@ -234,7 +234,7 @@ pub fn transform_line_range(
 
 /// Removes a single trailing newline, if present
 pub fn without_trailing_newline(text: Text) -> Text {
-  case iv.last(text.lines) {
+  case iv.at(text.lines, -1) {
     Ok(last) if last == "" -> with_lines(text, iv.drop_last(text.lines, 1))
     _ -> text
   }
