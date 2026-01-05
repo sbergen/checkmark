@@ -139,9 +139,11 @@ pub fn comments_in(
 /// For example
 ///
 /// ```gleam contents_of
-/// checker
-/// |> checkmark.document("README.md")
-/// |> checkmark.should_contain_contents_of("./example.sh", tagged: "sh deps")
+/// checkmark.new()
+/// |> checkmark.document("README.md", fn(doc) {
+///   doc
+///   |> checkmark.should_contain_contents_of("./example.sh", tagged: "deps")
+/// })
 /// ```
 ///
 /// will replace the code block starting with ```` ```sh deps````
@@ -165,13 +167,15 @@ pub fn should_contain_contents_of(
 /// For example
 ///
 /// ```gleam snippet_from
-/// checker
-/// |> checkmark.document("README.md")
-/// |> checkmark.should_contain_snippet_from(
-///   snippets,
-///   checkmark.function("wibble"),
-///   tagged: "wibble",
-/// )
+/// checkmark.new()
+/// |> checkmark.document("README.md", fn(doc) {
+///   doc
+///   |> checkmark.should_contain_snippet_from(
+///     "my_file.gleam",
+///     checkmark.function("wibble"),
+///     tagged: "wibble",
+///   )
+/// })
 /// ```
 ///
 /// will replace the code block starting with ```` ```gleam wibble````

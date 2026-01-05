@@ -32,26 +32,22 @@ Update a markdown file:
 ```gleam markdown
 import checkmark
 import envoy
-import simplifile
 
 pub fn example_test() {
-  let checker = checkmark.new(simplifile.read, simplifile.write)
-
-  let assert Ok(snippets) =
-    checkmark.load_snippet_source(checker, "./test/doc_snippets_test.gleam")
-
-  assert checker
-    |> checkmark.document("README.md")
-    |> checkmark.should_contain_contents_of("./example.sh", tagged: "sh deps")
-    |> checkmark.should_contain_contents_of(
-      "./test/example_test.gleam",
-      tagged: "gleam markdown",
-    )
-    |> checkmark.should_contain_snippet_from(
-      snippets,
-      checkmark.function_body("update_docs_test"),
-      tagged: "update comments",
-    )
+  assert checkmark.new()
+    |> checkmark.document("README.md", fn(doc) {
+      doc
+      |> checkmark.should_contain_contents_of("./example.sh", tagged: "deps")
+      |> checkmark.should_contain_contents_of(
+        "./test/example_test.gleam",
+        tagged: "markdown",
+      )
+      |> checkmark.should_contain_snippet_from(
+        "./test/doc_snippets_test.gleam",
+        checkmark.function_body("update_docs_test"),
+        tagged: "update comments",
+      )
+    })
     // Update locally, check on CI
     |> checkmark.check_or_update(
       when: envoy.get("GITHUB_WORKFLOW") == Error(Nil),
@@ -63,23 +59,22 @@ pub fn example_test() {
 Update comments in code:
 
 ```gleam update comments
-let checker = checkmark.new(simplifile.read, simplifile.write)
+let snippet_source = "./test/doc_snippets_test.gleam"
 
-let assert Ok(snippets) =
-  checkmark.load_snippet_source(checker, "./test/doc_snippets_test.gleam")
-
-assert checker
-  |> checkmark.comments_in("./src/checkmark.gleam")
-  |> checkmark.should_contain_snippet_from(
-    snippets,
-    checkmark.function_body("contents_of_example"),
-    tagged: "contents_of",
-  )
-  |> checkmark.should_contain_snippet_from(
-    snippets,
-    checkmark.function_body("snippet_from_example"),
-    tagged: "snippet_from",
-  )
+assert checkmark.new()
+  |> checkmark.comments_in("./src/checkmark.gleam", fn(doc) {
+    doc
+    |> checkmark.should_contain_snippet_from(
+      snippet_source,
+      checkmark.function_body("contents_of_example"),
+      tagged: "contents_of",
+    )
+    |> checkmark.should_contain_snippet_from(
+      snippet_source,
+      checkmark.function_body("snippet_from_example"),
+      tagged: "snippet_from",
+    )
+  })
   // Update locally, check on CI
   |> checkmark.check_or_update(
     when: envoy.get("GITHUB_WORKFLOW") == Error(Nil),
