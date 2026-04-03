@@ -301,7 +301,7 @@ pub fn apply_all(text: Text, edits: List(Edit)) -> Result(Text, Nil) {
     ))
     case edit {
       ReplaceLines(at:, count:, with:) -> {
-        use at <- result.try(mapped_line_number(line_changes, at))
+        let at = mapped_line_number(line_changes, at)
         use text <- result.try(replace_lines(text, at, count, with))
         let line_changes = update_line_numbers(line_changes, edit)
         Ok(#(text, line_changes))
@@ -315,17 +315,15 @@ type LineChange {
   LineChange(at: Int, count: Int)
 }
 
-// TODO: Better error, check past-the-end
-fn mapped_line_number(
-  changes: List(LineChange),
-  original_line: Int,
-) -> Result(Int, Nil) {
+/// Maps original line numbers according to line changes.
+/// Does NOT check past-the end, that can be checked from the text itself!
+fn mapped_line_number(changes: List(LineChange), original_line: Int) -> Int {
   case changes {
-    [] -> Ok(original_line)
+    [] -> original_line
     [change, ..rest] ->
       case change.at <= original_line {
         True -> mapped_line_number(rest, original_line + change.count)
-        False -> Ok(original_line)
+        False -> original_line
       }
   }
 }
@@ -338,6 +336,6 @@ fn update_line_numbers(
     ReplaceLines(at:, count:, with:) ->
       LineChange(at: at, count: line_count(with) - count)
   }
-  // TODO: could use better data structure
+  // This is a potential optimization point?
   list.sort([change, ..changes], fn(a, b) { int.compare(a.at, b.at) })
 }
