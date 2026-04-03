@@ -281,16 +281,51 @@ pub type Edit {
 /// as if they were all applied to line positions of the original text.
 /// Any out-of range positions will result in an error.
 pub fn apply_all(text: Text, edits: List(Edit)) -> Result(Text, Nil) {
+  let line_changes = []
   {
-    use #(text, line_offset), edit <- list.try_fold(edits, #(text, 0))
+    use #(text, line_changes), edit <- list.try_fold(edits, #(
+      text,
+      line_changes,
+    ))
     case edit {
-      ReplaceLines(at:, count:, with:) ->
-        replace_lines(text, at + line_offset, count, with)
-        |> result.map(fn(text) {
-          let line_offset = line_offset + line_count(with) - count
-          #(text, line_offset)
-        })
+      ReplaceLines(at:, count:, with:) -> {
+        use at <- result.try(mapped_line_number(line_changes, at))
+        use text <- result.try(replace_lines(text, at, count, with))
+        let line_changes = update_line_numbers(line_changes, edit)
+        Ok(#(text, line_changes))
+      }
     }
   }
   |> result.map(fn(result) { result.0 })
+}
+
+type LineChange {
+  LineChange(at: Int, count: Int)
+}
+
+// TODO: Better error, check past-the-end
+fn mapped_line_number(
+  changes: List(LineChange),
+  original_line: Int,
+) -> Result(Int, Nil) {
+  case changes {
+    [] -> Ok(original_line)
+    [change, ..rest] ->
+      case change.at <= original_line {
+        True -> mapped_line_number(rest, original_line + change.count)
+        False -> Ok(original_line)
+      }
+  }
+}
+
+fn update_line_numbers(
+  changes: List(LineChange),
+  edit: Edit,
+) -> List(LineChange) {
+  let change = case edit {
+    ReplaceLines(at:, count:, with:) ->
+      LineChange(at: at, count: line_count(with) - count)
+  }
+  // TODO: could use better data structure
+  list.sort([change, ..changes], fn(a, b) { int.compare(a.at, b.at) })
 }

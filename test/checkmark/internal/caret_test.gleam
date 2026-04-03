@@ -256,6 +256,28 @@ five
 "
 }
 
+pub fn apply_all_out_of_order_test() {
+  let text = caret.from_string("1\n2\n3\n4\n5")
+  let replacement1 = caret.from_string("Two & Three")
+  let replacement2 = caret.from_string("f\no\nu\nr")
+  let replacement3 = caret.from_string("five\n")
+  let edits = [
+    ReplaceLines(at: 4, count: 1, with: replacement3),
+    ReplaceLines(at: 3, count: 1, with: replacement2),
+    ReplaceLines(at: 1, count: 2, with: replacement1),
+  ]
+
+  let assert Ok(edited) = caret.apply_all(text, edits)
+  assert caret.to_string(edited) == "1
+Two & Three
+f
+o
+u
+r
+five
+"
+}
+
 pub fn apply_all_insert_test() {
   let assert Ok(text) =
     caret.from_string("1\n2\n3")
