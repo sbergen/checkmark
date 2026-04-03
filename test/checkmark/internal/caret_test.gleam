@@ -25,6 +25,11 @@ pub fn line_ending_test() {
   assert caret.line_ending(text) == Lf
 }
 
+pub fn with_line_ending_test() {
+  let text = caret.from_string("1\r\n2\r\n3")
+  assert caret.to_string(caret.with_line_ending(text, caret.Lf)) == "1\n2\n3"
+}
+
 pub fn single_newline_is_two_empty_lines_test() {
   let text = caret.from_string("\n")
   assert caret.line_count(text) == 2
@@ -290,6 +295,16 @@ and
 2
 and
 3"
+}
+
+pub fn apply_all_delete_test() {
+  let assert Ok(text) =
+    caret.from_string("1\n2\n3")
+    |> caret.apply_all([
+      ReplaceLines(at: 0, count: 1, with: caret.new()),
+      ReplaceLines(at: 2, count: 1, with: caret.new()),
+    ])
+  assert caret.to_string(text) == "2"
 }
 
 pub fn apply_all_error_test() {

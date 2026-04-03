@@ -8,6 +8,8 @@ import splitter.{type Splitter}
 /// The default (gleamy) tab stop used, if not overridden
 pub const default_tab_stop = 2
 
+pub const default_line_ending = Lf
+
 pub type LineEnding {
   Lf
   CrLf
@@ -15,6 +17,11 @@ pub type LineEnding {
 
 pub opaque type Text {
   Text(lines: Array(String), line_ending: LineEnding, tab_stop: Int)
+}
+
+/// Constructs an empty text with the default settings
+pub fn new() -> Text {
+  Text(iv.new(), default_line_ending, default_tab_stop)
 }
 
 pub fn from_string(content: String) -> Text {
@@ -74,14 +81,19 @@ pub fn to_string(text: Text) -> String {
 
 /// Record updates can't be used with function captures,
 /// so we make a function for this.
-fn with_lines(text: Text, lines: Array(String)) {
+fn with_lines(text: Text, lines: Array(String)) -> Text {
   Text(..text, lines:)
 }
 
 /// Returns a new text with the given tab stop setting.
 /// Only affects unindentation operations.
-pub fn with_tab_stop_width(text: Text, tab_stop: Int) {
+pub fn with_tab_stop_width(text: Text, tab_stop: Int) -> Text {
   Text(..text, tab_stop:)
+}
+
+/// Returns a new text with the given line ending
+pub fn with_line_ending(text: Text, ending: LineEnding) -> Text {
+  Text(..text, line_ending: ending)
 }
 
 /// Checks whether two texts have the same line content.
