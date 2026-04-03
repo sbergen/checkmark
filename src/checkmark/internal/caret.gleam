@@ -1,6 +1,5 @@
 import gleam/bool
 import gleam/int
-import gleam/list
 import gleam/result
 import iv.{type Array}
 import splitter.{type Splitter}
@@ -282,60 +281,4 @@ pub fn fold_lines_with_index_right(
   with fun: fn(state, String, Int) -> state,
 ) -> state {
   iv.index_fold_right(text.lines, state, fun)
-}
-
-/// Represents an edit to be done as part of batch processing
-pub type Edit {
-  ReplaceLines(at: Int, count: Int, with: Text)
-}
-
-/// Applies a number of edits in order,
-/// as if they were all applied to line positions of the original text.
-/// Any out-of range positions will result in an error.
-pub fn apply_all(text: Text, edits: List(Edit)) -> Result(Text, Nil) {
-  let line_changes = []
-  {
-    use #(text, line_changes), edit <- list.try_fold(edits, #(
-      text,
-      line_changes,
-    ))
-    case edit {
-      ReplaceLines(at:, count:, with:) -> {
-        let at = mapped_line_number(line_changes, at)
-        use text <- result.try(replace_lines(text, at, count, with))
-        let line_changes = update_line_numbers(line_changes, edit)
-        Ok(#(text, line_changes))
-      }
-    }
-  }
-  |> result.map(fn(result) { result.0 })
-}
-
-type LineChange {
-  LineChange(at: Int, count: Int)
-}
-
-/// Maps original line numbers according to line changes.
-/// Does NOT check past-the end, that can be checked from the text itself!
-fn mapped_line_number(changes: List(LineChange), original_line: Int) -> Int {
-  case changes {
-    [] -> original_line
-    [change, ..rest] ->
-      case change.at <= original_line {
-        True -> mapped_line_number(rest, original_line + change.count)
-        False -> original_line
-      }
-  }
-}
-
-fn update_line_numbers(
-  changes: List(LineChange),
-  edit: Edit,
-) -> List(LineChange) {
-  let change = case edit {
-    ReplaceLines(at:, count:, with:) ->
-      LineChange(at: at, count: line_count(with) - count)
-  }
-  // This is a potential optimization point?
-  list.sort([change, ..changes], fn(a, b) { int.compare(a.at, b.at) })
 }

@@ -5,6 +5,7 @@ import checkmark/internal/code_extractor
 import checkmark/internal/config.{type Expectation}
 import checkmark/internal/parser
 import gleam/dict.{type Dict}
+import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
@@ -309,12 +310,15 @@ pub type Replacement {
 
 fn render_file(replacements: FileReplacements) -> Result(String, Nil) {
   let text = replacements.original_text
-  let replacements =
-    list.map(replacements.replacements, fn(r) {
-      caret.ReplaceLines(r.at_line, r.line_count, r.text)
-    })
 
-  caret.apply_all(text, replacements)
+  // Apply edits in reverse order, 
+  // so that the line numbers still apply.
+  list.sort(replacements.replacements, fn(a, b) {
+    int.compare(b.at_line, a.at_line)
+  })
+  |> list.try_fold(text, fn(text, r) {
+    caret.replace_lines(text, r.at_line, r.line_count, r.text)
+  })
   |> result.map(caret.to_string)
 }
 

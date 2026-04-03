@@ -1,4 +1,4 @@
-import checkmark/internal/caret.{CrLf, Lf, ReplaceLines}
+import checkmark/internal/caret.{CrLf, Lf}
 import gleam/int
 import gleam/list
 import gleam/result
@@ -237,82 +237,6 @@ pub fn fold_right_test() {
   assert caret.from_string("1\n2\n3")
     |> caret.fold_lines_right([], list.prepend)
     == ["1", "2", "3"]
-}
-
-pub fn apply_all_lines_test() {
-  let text = caret.from_string("1\n2\n3\n4\n5")
-  let replacement1 = caret.from_string("Two & Three")
-  let replacement2 = caret.from_string("f\no\nu\nr")
-  let replacement3 = caret.from_string("five\n")
-  let edits = [
-    ReplaceLines(at: 1, count: 2, with: replacement1),
-    ReplaceLines(at: 3, count: 1, with: replacement2),
-    ReplaceLines(at: 4, count: 1, with: replacement3),
-  ]
-
-  let assert Ok(edited) = caret.apply_all(text, edits)
-  assert caret.to_string(edited) == "1
-Two & Three
-f
-o
-u
-r
-five
-"
-}
-
-pub fn apply_all_out_of_order_test() {
-  let text = caret.from_string("1\n2\n3\n4\n5")
-  let replacement1 = caret.from_string("Two & Three")
-  let replacement2 = caret.from_string("f\no\nu\nr")
-  let replacement3 = caret.from_string("five\n")
-  let edits = [
-    ReplaceLines(at: 4, count: 1, with: replacement3),
-    ReplaceLines(at: 3, count: 1, with: replacement2),
-    ReplaceLines(at: 1, count: 2, with: replacement1),
-  ]
-
-  let assert Ok(edited) = caret.apply_all(text, edits)
-  assert caret.to_string(edited) == "1
-Two & Three
-f
-o
-u
-r
-five
-"
-}
-
-pub fn apply_all_insert_test() {
-  let assert Ok(text) =
-    caret.from_string("1\n2\n3")
-    |> caret.apply_all([
-      ReplaceLines(at: 1, count: 0, with: caret.from_string("and")),
-      ReplaceLines(at: 2, count: 0, with: caret.from_string("and")),
-    ])
-  assert caret.to_string(text) == "1
-and
-2
-and
-3"
-}
-
-pub fn apply_all_delete_test() {
-  let assert Ok(text) =
-    caret.from_string("1\n2\n3")
-    |> caret.apply_all([
-      ReplaceLines(at: 0, count: 1, with: caret.new()),
-      ReplaceLines(at: 2, count: 1, with: caret.new()),
-    ])
-  assert caret.to_string(text) == "2"
-}
-
-pub fn apply_all_error_test() {
-  assert caret.from_string("")
-    |> caret.apply_all([
-      ReplaceLines(at: 1, count: 10, with: caret.from_string("wibble")),
-    ])
-    == Error(Nil)
 }
 
 pub fn map_lines_test() {
