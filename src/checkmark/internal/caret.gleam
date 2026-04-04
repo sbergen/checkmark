@@ -85,7 +85,6 @@ fn get_lines(
 pub fn to_string(text: Text) -> String {
   let line_ending = line_ending_string(text.line_ending)
 
-  // TODO: See if this needs optimization
   use result, line, i <- iv.index_fold(text.lines, "")
   case i {
     0 -> result <> line
