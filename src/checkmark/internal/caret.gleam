@@ -7,13 +7,22 @@ import splitter.{type Splitter}
 /// The default (gleamy) tab stop used, if not overridden
 pub const default_tab_stop = 2
 
+/// The default line ending when constructing an empty `Text`.
 pub const default_line_ending = Lf
 
+/// Line ending to use when rendering to `String`.
+/// Also detected when converting from `String` to `Text`.
 pub type LineEnding {
+  /// Use the Line Feed character (`\n`) between lines.
   Lf
+  /// Use the  Carriage Return and Line Feed characters (`\r\n`) between lines.
   CrLf
 }
 
+/// A line-based representation of text.
+/// In addition to the lines (without line endings),
+/// contains information about the line ending to use when rendering to a `String`
+/// and a tab-stop setting.
 pub opaque type Text {
   Text(lines: Array(String), line_ending: LineEnding, tab_stop: Int)
 }
@@ -23,6 +32,9 @@ pub fn new() -> Text {
   Text(iv.new(), default_line_ending, default_tab_stop)
 }
 
+/// Constructs a `Text` from a string, by splitting it into lines.
+/// The most prevalent line ending is automatically detected,
+/// Line Feed winning in case of a tie.
 pub fn from_string(content: String) -> Text {
   // Handling this here makes the line splitting prettier
   use <- bool.guard(content == "", Text(iv.new(), Lf, default_tab_stop))
@@ -67,6 +79,9 @@ fn get_lines(
   }
 }
 
+/// Renders the text into a string by concatenating the lines,
+/// separating them with the configured line ending.
+/// No trailing newline is rendered, unless there is an empty line at the end.
 pub fn to_string(text: Text) -> String {
   let line_ending = line_ending_string(text.line_ending)
 
@@ -75,6 +90,13 @@ pub fn to_string(text: Text) -> String {
   case i {
     0 -> result <> line
     _ -> result <> line_ending <> line
+  }
+}
+
+fn line_ending_string(ending: LineEnding) -> String {
+  case ending {
+    Lf -> "\n"
+    CrLf -> "\r\n"
   }
 }
 
@@ -103,7 +125,9 @@ pub fn lines_equal(a: Text, b: Text) -> Bool {
   iv.equal(a.lines, b.lines)
 }
 
-/// Returns the number lines in the text.
+/// Returns the number of lines in the text.
+/// Note that a trailing newline will result in one empty line at the end,
+/// which is included in this count.
 pub fn line_count(text: Text) -> Int {
   iv.size(text.lines)
 }
@@ -119,24 +143,21 @@ pub fn line_ending(text: Text) -> LineEnding {
   text.line_ending
 }
 
+/// Returns a new Text from a slice of lines,
+/// or an error if the lines are out of range.
 pub fn slice_lines(text: Text, from: Int, count: Int) -> Result(Text, Nil) {
   iv.slice(text.lines, from, count)
   |> result.map(with_lines(text, _))
 }
 
+/// Returns a new Text from a slice of lines,
+/// clamping the given range if it is out of bounds.
 pub fn slice_lines_clamped(text: Text, from: Int, count: Int) -> Text {
   iv.slice_clamped(text.lines, from, count)
   |> with_lines(text, _)
 }
 
-fn line_ending_string(ending: LineEnding) -> String {
-  case ending {
-    Lf -> "\n"
-    CrLf -> "\r\n"
-  }
-}
-
-/// Replaces the lines
+/// Replaces the number of lines at the given index with another text.
 pub fn replace_lines(
   text: Text,
   at index: Int,
@@ -228,8 +249,16 @@ fn unindent_line(
   }
 }
 
+/// Returns a new text with each line transformed by the given function.
+/// Maps lines one-to-one.
 pub fn map_lines(text: Text, with: fn(String) -> String) -> Text {
   with_lines(text, iv.map(text.lines, with))
+}
+
+// TODO: Add remark about line ending and tab stop.
+/// Returns a new text with each line replaced by zero.
+pub fn flat_map_lines(text: Text, with: fn(String) -> Text) -> Text {
+  with_lines(text, iv.flat_map(text.lines, fn(line) { with(line).lines }))
 }
 
 pub fn transform_line_range(
