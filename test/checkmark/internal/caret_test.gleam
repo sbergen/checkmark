@@ -1,4 +1,4 @@
-import checkmark/internal/caret.{CrLf, Lf}
+import checkmark/internal/caret
 import gleam/int
 import gleam/list
 import gleam/result
@@ -7,28 +7,33 @@ pub fn empty_text_test() {
   let text = caret.from_string("")
   assert caret.line_count(text) == 1
   assert caret.line(text, 0) == Ok("")
-  assert caret.line_ending(text) == Lf
+  assert caret.line_ending(text) == "\n"
 }
 
 pub fn line_ending_test() {
+  let text = caret.from_string("")
+  assert caret.line_ending(text) == "\n"
+
+  let text = caret.from_string("\n*")
+  assert caret.line_ending(text) == "\n"
+
   let text = caret.from_string("\r\n")
-  assert caret.line_ending(text) == CrLf
+  assert caret.line_ending(text) == "\r\n"
 
   let text = caret.from_string("\n")
-  assert caret.line_ending(text) == Lf
+  assert caret.line_ending(text) == "\n"
 
   // The majority wins
   let text = caret.from_string("\r\n\r\n\n")
-  assert caret.line_ending(text) == CrLf
-
+  assert caret.line_ending(text) == "\r\n"
   // Ties are Lf
   let text = caret.from_string("\r\n\r\n\n\n")
-  assert caret.line_ending(text) == Lf
+  assert caret.line_ending(text) == "\n"
 }
 
 pub fn with_line_ending_test() {
   let text = caret.from_string("1\r\n2\r\n3")
-  assert caret.to_string(caret.with_line_ending(text, caret.Lf)) == "1\n2\n3"
+  assert caret.to_string(caret.with_line_ending(text, "\n")) == "1\n2\n3"
 }
 
 pub fn single_newline_is_two_empty_lines_test() {

@@ -5,7 +5,9 @@
 //// which might make it unsuitable for certain use cases.
 
 import gleam/bool
+import gleam/dict.{type Dict}
 import gleam/int
+import gleam/option
 import gleam/result
 import iv.{type Array}
 import splitter.{type Splitter}
@@ -14,23 +16,14 @@ import splitter.{type Splitter}
 pub const default_tab_stop = 2
 
 /// The default line ending, when it can't be detected.
-pub const default_line_ending = Lf
-
-/// Line ending to use when rendering to `String`.
-/// Also detected when converting from `String` to `Text`.
-pub type LineEnding {
-  /// Use the Line Feed character (`\n`) between lines.
-  Lf
-  /// Use the  Carriage Return and Line Feed characters (`\r\n`) between lines.
-  CrLf
-}
+pub const default_line_ending = "\n"
 
 /// A line-based representation of text.
 /// In addition to the lines (without line endings),
 /// contains information about the line ending to use when rendering to a `String`
 /// and a tab-stop setting.
 pub opaque type Text {
-  Text(lines: Array(String), line_ending: LineEnding, tab_stop: Int)
+  Text(lines: Array(String), line_ending: String, tab_stop: Int)
 }
 
 /// Constructs an empty text with the default settings.
@@ -45,33 +38,42 @@ pub fn new() -> Text {
 /// Line Feed winning in case of a tie.
 pub fn from_string(content: String) -> Text {
   // Handling this here makes the line splitting prettier
-  use <- bool.guard(content == "", Text(iv.wrap(""), Lf, default_tab_stop))
+  use <- bool.guard(
+    content == "",
+    Text(iv.wrap(""), default_line_ending, default_tab_stop),
+  )
 
   let splitter = splitter.new(["\n", "\r\n"])
-  let #(lines, #(lf_count, crlf_count)) =
-    get_lines(splitter, content, [], #(0, 0))
+  let #(lines, line_endings) = get_lines(splitter, content, [], dict.new())
 
-  let line_ending = case crlf_count > lf_count {
-    True -> CrLf
-    False -> Lf
-  }
+  let line_ending =
+    dict.fold(line_endings, #(default_line_ending, 0), fn(max, ending, count) {
+      case ending, count > max.1 {
+        _, True -> #(ending, count)
+        _, False -> max
+      }
+    }).0
 
   Text(lines:, line_ending:, tab_stop: default_tab_stop)
 }
 
+/// If there is a tie, the default wins
 fn get_lines(
   splitter: Splitter,
   content: String,
   lines: List(String),
-  ending_counts: #(Int, Int),
-) -> #(Array(String), #(Int, Int)) {
+  ending_counts: Dict(String, Int),
+) -> #(Array(String), Dict(String, Int)) {
   let #(line, ending, rest) = splitter.split(splitter, content)
 
   // Accumulate the current line
   let lines = [line, ..lines]
   let ending_counts = case ending {
-    "\r\n" -> #(ending_counts.0, ending_counts.1 + 1)
-    _ -> #(ending_counts.0 + 1, ending_counts.1)
+    "" -> ending_counts
+    _ ->
+      dict.upsert(ending_counts, ending, fn(count) {
+        option.unwrap(count, 0) + 1
+      })
   }
 
   case rest {
@@ -91,19 +93,10 @@ fn get_lines(
 /// separating them with the configured line ending.
 /// No trailing newline is rendered, unless there is an empty line at the end.
 pub fn to_string(text: Text) -> String {
-  let line_ending = line_ending_string(text.line_ending)
-
   use result, line, i <- iv.index_fold(text.lines, "")
   case i {
     0 -> result <> line
-    _ -> result <> line_ending <> line
-  }
-}
-
-fn line_ending_string(ending: LineEnding) -> String {
-  case ending {
-    Lf -> "\n"
-    CrLf -> "\r\n"
+    _ -> result <> text.line_ending <> line
   }
 }
 
@@ -120,7 +113,7 @@ pub fn with_tab_stop_width(text: Text, tab_stop: Int) -> Text {
 }
 
 /// Returns a new text with the given line ending
-pub fn with_line_ending(text: Text, ending: LineEnding) -> Text {
+pub fn with_line_ending(text: Text, ending: String) -> Text {
   Text(..text, line_ending: ending)
 }
 
@@ -146,7 +139,7 @@ pub fn line(text: Text, index: Int) -> Result(String, Nil) {
 }
 
 /// Returns the line ending used in the text.
-pub fn line_ending(text: Text) -> LineEnding {
+pub fn line_ending(text: Text) -> String {
   text.line_ending
 }
 
