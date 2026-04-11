@@ -16,6 +16,7 @@
 import gleam/bool
 import gleam/dict.{type Dict}
 import gleam/int
+import gleam/list
 import gleam/option
 import gleam/result
 import iv.{type Array}
@@ -175,6 +176,19 @@ pub fn slice_lines(text: Text, from: Int, count: Int) -> Result(Text, Nil) {
 pub fn slice_lines_clamped(text: Text, from: Int, count: Int) -> Text {
   iv.slice_clamped(text.lines, from, count)
   |> with_lines(text, _)
+}
+
+/// Concatenates the texts, 
+/// using the tab stop and line ending of the first text,
+/// or defaults if the list is empty.
+pub fn concat(texts: List(Text)) -> Text {
+  case texts {
+    [] -> new()
+    [first, ..] -> {
+      let lines = list.map(texts, fn(t) { t.lines }) |> iv.concat_list
+      with_lines(first, lines)
+    }
+  }
 }
 
 /// Replaces the number of lines at the given index with another text.

@@ -119,6 +119,18 @@ pub fn to_string_without_trailing_newline_test() {
   assert caret.from_string(content) |> caret.to_string == content
 }
 
+pub fn concat_test() {
+  assert caret.line_count(caret.concat([])) == 0
+
+  let texts = [
+    caret.from_string("1\n2\n3"),
+    caret.from_string("4\r\n5\r\n6"),
+    caret.from_string("7\r\n8\r\n9"),
+  ]
+
+  assert caret.concat(texts) |> caret.to_string() == "1\n2\n3\n4\n5\n6\n7\n8\n9"
+}
+
 pub fn slice_lines_basic_test() {
   let assert Ok(slice) =
     caret.from_string("1\n2\n3\n4")
