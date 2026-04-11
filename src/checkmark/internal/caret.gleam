@@ -54,6 +54,8 @@ pub fn from_string(content: String) -> Text {
 /// The most prevalent line ending is automatically detected,
 /// the result from ties being undefined.
 /// If no line endings are encountered, the given default is used.
+/// Note that `Text` instances constructed with different line ending settings
+/// may contain custom line endings within lines when combined!
 pub fn from_string_with_line_endings(
   content: String,
   line_endings: List(String),
