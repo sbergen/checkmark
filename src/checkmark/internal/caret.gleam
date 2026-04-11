@@ -6,6 +6,13 @@
 //// However, caret does support custom line endings,
 //// in case the typical \n or \r\n endings are not used.
 
+// Implementation notes:
+// As of 2026-04, splitter and string operations are so efficient,
+// that providing operations to construct from a list of strings,
+// keeping the guarantee of no line breaks within a line,
+// is less efficient than just building the string and then splitting it.
+// This applies at least at the magnitude of 100k lines with hundreds of characters.
+
 import gleam/bool
 import gleam/dict.{type Dict}
 import gleam/int
@@ -71,7 +78,6 @@ pub fn from_string_with_line_endings(
   Text(lines:, line_ending:, tab_stop: default_tab_stop)
 }
 
-/// If there is a tie, the default wins
 fn get_lines(
   splitter: Splitter,
   content: String,
