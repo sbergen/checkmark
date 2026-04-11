@@ -3,6 +3,8 @@
 //// and forces line ending normalization when converting text back to a string.
 //// Thus it does not preserve mixed line-endings,
 //// which might make it unsuitable for certain use cases.
+//// However, caret does support custom line endings,
+//// in case the typical \n or \r\n endings are not used.
 
 import gleam/bool
 import gleam/dict.{type Dict}
@@ -15,9 +17,6 @@ import splitter.{type Splitter}
 /// The default (gleamy) tab stop used, if not overridden
 pub const default_tab_stop = 2
 
-/// The default line ending, when it can't be detected.
-pub const default_line_ending = "\n"
-
 /// A line-based representation of text.
 /// In addition to the lines (without line endings),
 /// contains information about the line ending to use when rendering to a `String`
@@ -26,24 +25,39 @@ pub opaque type Text {
   Text(lines: Array(String), line_ending: String, tab_stop: Int)
 }
 
-/// Constructs an empty text with the default settings.
+/// Constructs an empty text with the default settings (\n, tab stop of 2).
 /// Note that an empty `Text` can not be constructed using `from_string`,
 /// as that will include at least one line.
 pub fn new() -> Text {
-  Text(iv.new(), default_line_ending, default_tab_stop)
+  Text(iv.new(), "\n", default_tab_stop)
 }
 
-/// Constructs a `Text` from a string, by splitting it into lines.
+/// Constructs a `Text` from a string,
+/// by splitting it into lines using default line endings (\n, \r\n).
 /// The most prevalent line ending is automatically detected,
-/// Line Feed winning in case of a tie.
+/// the result from ties being undefined.
+/// \n is used if no line endings are found.
 pub fn from_string(content: String) -> Text {
+  from_string_with_line_endings(content, ["\n", "\r\n"], "\n")
+}
+
+/// Constructs a `Text` from a string,
+/// by splitting it into lines using a custom set of line endings.
+/// The most prevalent line ending is automatically detected,
+/// the result from ties being undefined.
+/// If no line endings are encountered, the given default is used.
+pub fn from_string_with_line_endings(
+  content: String,
+  line_endings: List(String),
+  default_line_ending: String,
+) -> Text {
   // Handling this here makes the line splitting prettier
   use <- bool.guard(
     content == "",
     Text(iv.wrap(""), default_line_ending, default_tab_stop),
   )
 
-  let splitter = splitter.new(["\n", "\r\n"])
+  let splitter = splitter.new(line_endings)
   let #(lines, line_endings) = get_lines(splitter, content, [], dict.new())
 
   let line_ending =

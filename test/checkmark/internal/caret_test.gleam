@@ -26,9 +26,23 @@ pub fn line_ending_test() {
   // The majority wins
   let text = caret.from_string("\r\n\r\n\n")
   assert caret.line_ending(text) == "\r\n"
-  // Ties are Lf
+
+  // Ties are undefined
   let text = caret.from_string("\r\n\r\n\n\n")
-  assert caret.line_ending(text) == "\n"
+  assert caret.line_ending(text) == "\n" || caret.line_ending(text) == "\r\n"
+}
+
+pub fn custom_line_ending_test() {
+  let text = caret.from_string_with_line_endings("", [], "--")
+  assert caret.line_ending(text) == "--"
+  assert caret.line_count(text) == 1
+
+  let text =
+    caret.from_string_with_line_endings("a**b--c**d", ["--", "**"], "--")
+  assert caret.to_string(text) == "a**b**c**d"
+
+  let text = caret.from_string_with_line_endings("a*b*c**d", ["*", "**"], "**")
+  assert caret.to_string(text) == "a*b*c*d"
 }
 
 pub fn with_line_ending_test() {
