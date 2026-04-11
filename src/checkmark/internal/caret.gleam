@@ -1,3 +1,9 @@
+//// Caret provides utilities for efficient line-oriented editing of text.
+//// Caret detects the most prevalent line ending,
+//// and forces line ending normalization when converting text back to a string.
+//// Thus it does not preserve mixed line-endings,
+//// which might make it unsuitable for certain use cases.
+
 import gleam/bool
 import gleam/int
 import gleam/result
@@ -7,7 +13,7 @@ import splitter.{type Splitter}
 /// The default (gleamy) tab stop used, if not overridden
 pub const default_tab_stop = 2
 
-/// The default line ending when constructing an empty `Text`.
+/// The default line ending, when it can't be detected.
 pub const default_line_ending = Lf
 
 /// Line ending to use when rendering to `String`.
@@ -250,8 +256,10 @@ fn unindent_line(
   }
 }
 
-// TODO: Add remark about line ending and tab stop. Also why map_lines doesn't exist.
 /// Returns a new text with each line replaced by zero or more lines.
+/// Keeps the tab stop and line ending of the first argument.
+/// Note that a `map_lines` function does not exist,
+/// because we need to guarantee no lines contain any newline characters.
 pub fn flat_map_lines(text: Text, with: fn(String) -> Text) -> Text {
   with_lines(text, iv.flat_map(text.lines, fn(line) { with(line).lines }))
 }
