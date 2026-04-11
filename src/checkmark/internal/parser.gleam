@@ -96,7 +96,11 @@ fn to_block(
   let line_count = next_line_number - line_number
   let text =
     caret.slice_lines_clamped(full_text, line_number, line_count)
-    |> caret.map_lines(string.drop_start(_, string.length(prefix)))
+    |> caret.flat_map_lines(fn(line) {
+      line
+      |> string.drop_start(string.length(prefix))
+      |> caret.from_string()
+    })
   CodeBlock(
     line_number,
     text |> caret.with_tab_stop_width(1) |> caret.unindent(start_fence.indent),

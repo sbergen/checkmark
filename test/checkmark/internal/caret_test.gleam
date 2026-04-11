@@ -5,7 +5,8 @@ import gleam/result
 
 pub fn empty_text_test() {
   let text = caret.from_string("")
-  assert caret.line_count(text) == 0
+  assert caret.line_count(text) == 1
+  assert caret.line(text, 0) == Ok("")
   assert caret.line_ending(text) == Lf
 }
 
@@ -239,11 +240,23 @@ pub fn fold_right_test() {
     == ["1", "2", "3"]
 }
 
-pub fn map_lines_test() {
-  assert caret.from_string("1\n2\n3")
-    |> caret.map_lines(fn(l) { l <> l })
-    |> caret.to_string
-    == "11\n22\n33"
+pub fn flat_map_lines_test() {
+  let text =
+    caret.from_string("1\n2\n3")
+    |> caret.flat_map_lines(fn(l) {
+      caret.from_string(l <> l <> "\n" <> l <> l)
+    })
+
+  assert caret.line_count(text) == 6
+  assert caret.to_string(text) == "11\n11\n22\n22\n33\n33"
+}
+
+pub fn flat_map_lines_empty_test() {
+  let text =
+    caret.from_string("1\n2\n3")
+    |> caret.flat_map_lines(fn(_) { caret.new() })
+
+  assert caret.line_count(text) == 0
 }
 
 pub fn without_trailing_newline_test() {

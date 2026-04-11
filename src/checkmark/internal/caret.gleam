@@ -27,7 +27,9 @@ pub opaque type Text {
   Text(lines: Array(String), line_ending: LineEnding, tab_stop: Int)
 }
 
-/// Constructs an empty text with the default settings
+/// Constructs an empty text with the default settings.
+/// Note that an empty `Text` can not be constructed using `from_string`,
+/// as that will include at least one line.
 pub fn new() -> Text {
   Text(iv.new(), default_line_ending, default_tab_stop)
 }
@@ -37,7 +39,7 @@ pub fn new() -> Text {
 /// Line Feed winning in case of a tie.
 pub fn from_string(content: String) -> Text {
   // Handling this here makes the line splitting prettier
-  use <- bool.guard(content == "", Text(iv.new(), Lf, default_tab_stop))
+  use <- bool.guard(content == "", Text(iv.wrap(""), Lf, default_tab_stop))
 
   let splitter = splitter.new(["\n", "\r\n"])
   let #(lines, #(lf_count, crlf_count)) =
@@ -248,14 +250,8 @@ fn unindent_line(
   }
 }
 
-/// Returns a new text with each line transformed by the given function.
-/// Maps lines one-to-one.
-pub fn map_lines(text: Text, with: fn(String) -> String) -> Text {
-  with_lines(text, iv.map(text.lines, with))
-}
-
-// TODO: Add remark about line ending and tab stop.
-/// Returns a new text with each line replaced by zero.
+// TODO: Add remark about line ending and tab stop. Also why map_lines doesn't exist.
+/// Returns a new text with each line replaced by zero or more lines.
 pub fn flat_map_lines(text: Text, with: fn(String) -> Text) -> Text {
   with_lines(text, iv.flat_map(text.lines, fn(line) { with(line).lines }))
 }

@@ -497,7 +497,11 @@ fn create_replacement(
     [parser.CodeBlock(line_number:, text:, prefix:, start_fence:, ..)] -> {
       let line_count = caret.line_count(text)
       let prefix = prefix <> string.repeat(" ", start_fence.indent)
-      let text = caret.map_lines(new_text, string.append(prefix, _))
+      let text =
+        caret.flat_map_lines(new_text, fn(line) {
+          string.append(prefix, line)
+          |> caret.from_string()
+        })
       Ok(Replacement(line_number, line_count, start_fence.tag, text))
     }
 
